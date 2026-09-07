@@ -1,0 +1,37 @@
+# API + pipeline image. One container does everything compute-side:
+# the FastAPI server, and the pipeline/render/review/deck stages it launches
+# as subprocesses (they share this filesystem and this Python).
+#
+# Layer order matters for caching: requirements first (changes rarely, so the
+# slow pip + chromium layers are reused), source code last (changes often).
+FROM python:3.11-slim
+
+# System libs Chromium needs for headless SVG rendering (playwright pulls the
+# exact list itself with --with-deps).
+WORKDIR /app
+
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Chromium for figure rendering. ~400 MB layer, cached until requirements change.
+RUN playwright install --with-deps chromium
+
+# node + pptxgenjs for deck builds. Installed into /app/node_modules so
+# report/deck_case_slides.js resolves it by walking up from /app/report.
+RUN apt-get update && apt-get install -y --no-install-recommends nodejs npm \
+    && rm -rf /var/lib/apt/lists/* \
+    && npm install pptxgenjs
+
+# Source last: editing code only rebuilds from here down (seconds, not minutes).
+COPY criteria.yaml ./
+COPY pipeline/ pipeline/
+COPY agents/ agents/
+COPY report/ report/
+COPY api/ api/
+
+# runs/ and staged/ are volumes mounted by docker-compose -- data lives on the
+# host, so rebuilding or recreating the container never touches QC results.
+RUN mkdir -p runs staged
+
+EXPOSE 8000
+CMD ["uvicorn", "api.main:app", "--host", "0.0.0.0", "--port", "8000"]

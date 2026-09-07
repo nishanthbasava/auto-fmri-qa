@@ -1,0 +1,13 @@
+# Never bake these into an image.
+.env                # secrets (API key, lab password) -- passed at runtime via env_file
+.git
+.gitignore
+.locks-trash
+runs                # results are a volume, not image content
+staged              # data is a volume, not image content
+web/node_modules
+web/dist
+__pycache__
+*.pyc
+docs
+README.md

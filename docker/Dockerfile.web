@@ -1,0 +1,16 @@
+# Frontend image, built in two stages so the final image contains no node at
+# all -- just nginx and ~200 KB of static files.
+
+# --- stage 1: build the Vite bundle -----------------------------------------
+FROM node:20-slim AS build
+WORKDIR /web
+COPY web/package.json ./
+RUN npm install
+COPY web/ ./
+RUN npm run build          # -> /web/dist
+
+# --- stage 2: serve it -------------------------------------------------------
+FROM nginx:alpine
+COPY docker/nginx.conf /etc/nginx/conf.d/default.conf
+COPY --from=build /web/dist /usr/share/nginx/html
+EXPOSE 80

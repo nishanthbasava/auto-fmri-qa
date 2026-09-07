@@ -48,3 +48,14 @@ Any derivatives-shaped tree works — the pipeline only needs, per scan:
 
 Pointing `--input` directly at a full derivatives tree on the cluster also works;
 `stage_inputs.py` exists so the NIfTIs never need to leave the cluster.
+
+## Deploy (lab machine, Docker)
+
+    docker compose up -d --build     # then open http://<lab-machine>:8080
+
+Two containers: `api` (FastAPI + the whole pipeline, internal-only) and `web`
+(nginx serving the React app, proxying `/api`). Secrets come from `.env`
+(`APP_PASSWORD`, `ANTHROPIC_API_KEY`); results live in `./runs`, inputs in
+`./staged` — both survive rebuilds. Full walkthrough + Docker primer:
+[docs/deploy.md](docs/deploy.md). **ADNI DUA: lab network only — never expose
+port 8080 to the internet.**

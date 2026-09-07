@@ -1,0 +1,36 @@
+# Lab deployment: one command brings up the whole platform.
+#
+#     docker compose up -d --build
+#     -> http://<lab-machine>:8080        (from any machine on the lab network)
+#
+# IMPORTANT (ADNI DUA): this must stay on the lab network. Bind port 8080 only
+# on a machine that is not internet-reachable, and do not port-forward it.
+# The api container is intentionally NOT published to the host -- the only way
+# in is through nginx, and every /api request needs the APP_PASSWORD bearer
+# token from .env.
+services:
+  api:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.api
+    env_file: .env             # APP_PASSWORD (required), ANTHROPIC_API_KEY (for agent review)
+    volumes:
+      - ./runs:/app/runs       # QC results live on the host, not in the container
+      - ./staged:/app/staged   # drop staged fMRIPrep subsets here (see stage_inputs.py)
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python3", "-c",
+             "import urllib.request; urllib.request.urlopen('http://localhost:8000/api/health')"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+  web:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.web
+    ports:
+      - "8080:80"              # the single entry point for the lab
+    depends_on:
+      - api
+    restart: unless-stopped
