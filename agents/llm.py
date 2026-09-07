@@ -1,7 +1,18 @@
-"""Thin Anthropic API wrapper. Needs ANTHROPIC_API_KEY in the environment."""
+"""Thin Anthropic API wrapper.
+
+Reads ANTHROPIC_API_KEY from the environment; a .env file in the repo root
+(or any parent of the cwd) is loaded automatically if python-dotenv is
+installed. Never commit .env -- it is gitignored.
+"""
 import base64
 import json
 import os
+
+try:
+    from dotenv import load_dotenv
+    load_dotenv()  # searches cwd upward for .env; real env vars take precedence
+except ImportError:
+    pass
 
 MODEL = os.environ.get("AFQ_MODEL", "claude-sonnet-4-5")
 
