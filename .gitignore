@@ -1,0 +1,6 @@
+__pycache__/
+*.pyc
+.locks-trash/
+runs/
+node_modules/
+.env

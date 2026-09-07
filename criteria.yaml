@@ -1,0 +1,34 @@
+# QC criteria — the single source of truth for every threshold in the pipeline.
+# Version and date every change; the report footer prints these fields.
+version: "1.0-draft"
+dated: "2026-09-07"
+decided_by: "PENDING — lab meeting 2026-08-28 follow-up"
+
+exclusion:
+  # A scan is EXCLUDED if any of these hold. Applied per scan (session), never pooled.
+  missing_outputs: true          # confounds TSV, figures, or preproc BOLD absent
+  mean_fd_mm: 0.5                # session mean framewise displacement >
+
+outlier_definition:
+  # How a single volume is flagged. Options mirror the lab's A/B/C analysis.
+  #   absolute:    FD > fd_spike_mm            OR std_dvars > dvars_abs
+  #   relative:    FD > fd_spike_mm            OR std_dvars > dvars_rel_mult * scan median   (option B)
+  #   tr_scaled:   FD > fd_spike_mm * (TR/3s)  OR std_dvars > dvars_rel_mult * scan median   (option C;
+  #                known to over-flag multiband via respiratory pseudomotion — see docs)
+  mode: relative
+  fd_spike_mm: 0.5
+  dvars_abs: 1.5
+  dvars_rel_mult: 1.5
+
+caution:
+  motion_outlier_percent: 20.0   # scan is CAUTION if outlier% exceeds this (and not excluded)
+  min_retained_minutes: null     # optional floor on non-outlier time; null disables
+
+verify_flags:
+  # Amber "a human should look" markers; never change a label by themselves.
+  borderline_mean_fd_band: [0.45, 0.55]
+  borderline_outlier_band: [18.0, 22.0]
+
+multiband:
+  # TR below this is treated as multiband/fast-TR for reporting caveats.
+  fast_tr_threshold_s: 1.0
