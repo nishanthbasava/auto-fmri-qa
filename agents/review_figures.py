@@ -71,6 +71,16 @@ def main() -> int:
                            "note": r.get("note", "")}
             if r.get("rating") in ("concern", "bad"):
                 s["verify_flags"].append(f"visual review ({r.get('rating')}): {r.get('note')}")
+                # Rare-path RAG: ground the concern in the knowledge base.
+                # Advisory citations only; retrieve() returns [] on any failure.
+                from . import rag
+                cites = rag.retrieve(
+                    f"{r.get('panel') or ''} {r.get('note') or ''} "
+                    f"TR {s['metrics'].get('tr')}", k=2)
+                if cites:
+                    s["review"]["citations"] = [
+                        {"source": c["source"], "section": c["section"]}
+                        for c in cites]
         state.save()
         print(f"  batch {i // args.batch + 1}: {len(results)} results")
 

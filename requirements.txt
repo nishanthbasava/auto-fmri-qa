@@ -5,3 +5,4 @@ anthropic>=0.40         # agent review + findings writing
 python-dotenv>=1.0      # loads .env (ANTHROPIC_API_KEY, APP_PASSWORD) automatically
 fastapi>=0.110          # web API (api/main.py)
 uvicorn>=0.29           # ASGI server: uvicorn api.main:app
+chromadb>=1.0           # RAG over docs/knowledge (agents/rag.py)
