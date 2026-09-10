@@ -7,3 +7,6 @@ node_modules/
 web/dist/
 .chroma/
 staged/
+.DS_Store
+lists/
+lists_final/
