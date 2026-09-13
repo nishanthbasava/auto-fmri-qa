@@ -1,8 +1,8 @@
 """LLM visual review of rendered QC figures.
 
-    python -m agents.review_figures runs/<run>/ [--only flagged|all] [--batch 4]
+    autoqa review runs/<run>/ [--only flagged|all] [--batch 4]
 
-Reads state.json (after pipeline.run --render), sends each scan's figures to
+Reads state.json (after `autoqa run --render`), sends each scan's figures to
 the model with the checklist prompt, writes structured results back into
 state.json under scan["review"] and to review.json.
 
@@ -14,19 +14,19 @@ import json
 import os
 import sys
 
-from pipeline.state import RunState
+from ..pipeline.state import RunState
 from . import llm
 
 PROMPT = open(os.path.join(os.path.dirname(__file__), "prompts", "figure_review.md")).read()
 
 
-def main() -> int:
+def main(argv=None) -> int:
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("run_dir")
     ap.add_argument("--only", choices=["flagged", "all"], default="all",
                     help="review only CAUTION/EXCLUDE scans, or everything")
     ap.add_argument("--batch", type=int, default=4, help="scans per model call")
-    args = ap.parse_args()
+    args = ap.parse_args(argv)
 
     state = RunState(args.run_dir)
     todo = []
@@ -37,7 +37,7 @@ def main() -> int:
             continue
         figs = s.get("rendered", {})
         if not figs:
-            print(f"skip {key}: no rendered figures (run pipeline with --render)")
+            print(f"skip {key}: no rendered figures (run `autoqa run --render` or `autoqa render`)")
             continue
         todo.append((key, s, figs))
     if not todo:

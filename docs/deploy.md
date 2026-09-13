@@ -36,11 +36,13 @@ FastAPI is the only door.
 - `npm install pptxgenjs` in `/app` — deck builds shell out to node, and node
   resolves packages by walking up from the script to the nearest
   `node_modules`.
-- `COPY pipeline/ agents/ report/ api/` last — the cheap, frequently-changing
-  layer.
-- `CMD uvicorn api.main:app` — what runs when the container starts. The
+- `COPY autoqa/` + `pip install --no-deps .` last — the cheap, frequently-changing
+  layer. `--no-deps` because every dependency already came from the cached
+  requirements layer; this step only registers the package and the `autoqa`
+  console script.
+- `CMD autoqa serve` — what runs when the container starts. The
   pipeline itself needs no separate service: the API launches it as
-  subprocesses inside this same container.
+  subprocesses (`python -m autoqa.cli run ...`) inside this same container.
 
 ## Dockerfile.web: multi-stage build
 
@@ -68,7 +70,7 @@ entirely.
 #      ANTHROPIC_API_KEY=sk-ant-...        # only needed for agent figure review
 
 # 2) data -- put a staged fMRIPrep subset in staged/ (from the cluster):
-#      python stage_inputs.py /path/to/derivatives -o staged/batch1 --task rest
+#      autoqa stage /path/to/derivatives -o staged/batch1 --task rest
 
 # 3) build + start (first build ~5-10 min, mostly the Chromium layer):
 docker compose up -d --build

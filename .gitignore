@@ -12,3 +12,9 @@ artifacts/
 # ADNI-derived sample data must never be committed (DUA)
 lab_qc_scripts/sub-*/
 lab_qc_scripts/*.tar.gz
+*.egg-info/
+build/
+dist/
+.pytest_cache/
+.ruff_cache/
+.coverage

@@ -1,6 +1,6 @@
 """Build the flagged-scan review deck from a run.
 
-    python -m report.build_decks runs/<run>/ [--deck review|all]
+    autoqa report deck runs/<run>/ [--deck review|all]
 
 review: EXCLUDE section + CAUTION section + visual-flag appendix (scans whose
 LLM/manual review rated concern/bad while metrics said INCLUDE) + Keep? table.
@@ -13,7 +13,7 @@ import json
 import os
 import subprocess
 
-from pipeline.state import RunState
+from ..pipeline.state import RunState
 
 COLORS = {"EXCLUDE": "C62828", "CAUTION": "E8890C", "INCLUDE": "2E7D32", "APPENDIX": "B45309"}
 
@@ -28,11 +28,11 @@ def scan_payload(s):
     }
 
 
-def main() -> int:
+def main(argv=None) -> int:
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("run_dir")
     ap.add_argument("--deck", choices=["review", "all"], default="review")
-    args = ap.parse_args()
+    args = ap.parse_args(argv)
     state = RunState(args.run_dir)
     crit = state.data.get("criteria", {})
     scans = sorted(state.scans().values(), key=lambda s: (s["sub"], s["ses"]))

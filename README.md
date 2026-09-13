@@ -3,7 +3,8 @@
 Automated QA for fMRIPrep outputs: computes per-scan motion/artifact metrics, classifies
 scans (INCLUDE / CAUTION / EXCLUDE) under versioned criteria, has an LLM review the QC
 figures for problems metrics cannot see (coverage failures, saturated EPI, misregistration),
-and generates the review deliverables — PowerPoint decks and a static HTML dashboard.
+and generates the review deliverables — PowerPoint decks, a static HTML dashboard, and a
+web app where reviewers record keep/drop decisions.
 
 Built from the ADNI rs-fMRI QC pass (Aug 2026); design notes in `docs/architecture.md`.
 
@@ -13,32 +14,55 @@ Everything deterministic is plain code; the LLM is used only where judgment live
 looking at figures, writing findings prose, adjudicating borderlines. Metrics, thresholds,
 rendering, and deck assembly never depend on a model.
 
+## Install
+
+    pip install -e .            # core: the deterministic pipeline (pyyaml, pydantic, Pillow)
+    pip install -e .[all,dev]   # + rendering, LLM review, web API, test tooling
+    playwright install chromium # once, for figure rendering
+
+## Quick start (CLI)
+
+    # on the cluster: copy the light subset (figures / confounds / sidecars) out
+    autoqa stage /path/to/derivatives -o staged/batch1 --task rest
+    # locally:
+    autoqa run --input staged/batch1 --out runs/$(date +%Y%m%d) --render
+    autoqa lists runs/<run> -o lists/                  # included/caution/excluded CSVs
+    # optional LLM review + reports (needs ANTHROPIC_API_KEY):
+    autoqa rag build
+    autoqa review runs/<run>
+    autoqa report deck runs/<run> --deck review
+    autoqa report dashboard runs/<run>
+
+`autoqa --help` lists every subcommand. Every stage reads and writes
+`runs/<run>/state.json`, so stages are re-runnable and idempotent; a stage skips
+work whose outputs already exist.
+
+## Quick start (Python)
+
+    import autoqa
+
+    result = autoqa.qc("staged/batch1", out="runs/qc1")
+    print(result.counts)                      # {'INCLUDE': 393, 'CAUTION': 45, 'EXCLUDE': 20}
+    for s in result.scans:                    # one record per (subject, session)
+        print(s["sub"], s["ses"], s["status"], s["metrics"]["mean_fd"], s["verify_flags"])
+
+    crit = autoqa.load_criteria("my_criteria.yaml")   # validated: a typo fails here, not mid-run
+
 ## Layout
 
-    config/criteria.yaml every threshold, versioned and dated — the QC contract
-    scripts/             cluster-side helpers: stage_inputs.py copies the light subset
-                         (figures/confounds/sidecars) out of an fMRIPrep derivatives tree
-                         (~MBs per subject); sort_qc_scans.py, make_lists.py, slurm/
-    pipeline/            deterministic stages: discover → metrics → classify → render
-    agents/              LLM layers: figure review (vision, structured JSON), findings writer
-    report/              deck builder (pptx) + static HTML dashboard
-    lab_qc_scripts/      the lab's original subject-level fmriprep_qc workflow (vendored; see its README)
-    runs/<timestamp>/    all outputs of one run (gitignored)
-
-## Quick start
-
-    pip install -r requirements.txt && playwright install chromium
-    # on the cluster:
-    python scripts/stage_inputs.py /path/to/derivatives -o staged/
-    # locally:
-    python -m pipeline.run --input staged/ --criteria config/criteria.yaml --out runs/$(date +%Y%m%d)
-    # optional LLM review + reports (needs ANTHROPIC_API_KEY):
-    python -m agents.review_figures runs/<run>/
-    python -m report.build_decks runs/<run>/ --deck review
-    python -m report.dashboard runs/<run>/
-
-Every stage reads and writes `runs/<run>/state.json`, so stages are re-runnable and
-idempotent; a stage skips work whose outputs already exist.
+    autoqa/
+      data/criteria.yaml   every threshold, versioned and dated — the QC contract
+      data/knowledge/      protocol + QC reference docs the review agent retrieves from
+      criteria.py          pydantic schema for criteria.yaml; loaded/validated once per run
+      pipeline/            deterministic stages: discover → metrics → classify → render
+      agents/              LLM layers: figure review (vision, structured JSON) + RAG
+      report/              deck builder (pptx) + static HTML dashboard
+      api/                 FastAPI backend for the review app (web/ is the React frontend)
+      stage.py, lists.py   cluster-side staging; scan-level list export
+      cli.py               the `autoqa` command
+    scripts/               cluster-only helpers (sort_qc_scans.py, slurm/, protocol plots)
+    lab_qc_scripts/        the lab's original subject-level fmriprep_qc workflow (vendored; see its README)
+    runs/<timestamp>/      all outputs of one run (gitignored)
 
 ## Input contract
 
@@ -49,7 +73,14 @@ Any derivatives-shaped tree works — the pipeline only needs, per scan:
     sub-*/figures/*.svg                            (coreg, carpet, T1w→MNI)
 
 Pointing `--input` directly at a full derivatives tree on the cluster also works;
-`scripts/stage_inputs.py` exists so the NIfTIs never need to leave the cluster.
+`autoqa stage` exists so the NIfTIs never need to leave the cluster.
+
+## Criteria
+
+`autoqa/data/criteria.yaml` is the single source of truth for every threshold. Override
+with `--criteria path.yaml` or `AFQ_CRITERIA=path.yaml`; `autoqa criteria [path]`
+validates and prints a file. Every run stores the criteria it used in `state.json`, and
+every deliverable footer prints the version.
 
 ## Deploy (lab machine, Docker)
 

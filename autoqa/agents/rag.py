@@ -1,7 +1,7 @@
-"""Minimal RAG over the QC knowledge base (docs/knowledge/*.md) using ChromaDB.
+"""Minimal RAG over the QC knowledge base (autoqa/data/knowledge/*.md) using ChromaDB.
 
-    python -m agents.rag build              # (re)index the knowledge docs
-    python -m agents.rag query "multiband FD threshold"
+    autoqa rag build              # (re)index the knowledge docs
+    autoqa rag query "multiband FD threshold"
 
 Retrieval is deliberately rare and advisory: it runs only when the visual-review
 agent rates a scan "concern" or "bad" (a handful of scans per cohort), attaching
@@ -16,9 +16,9 @@ import argparse
 import os
 import re
 
-REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-KNOW_DIR = os.path.join(REPO, "docs", "knowledge")
-CHROMA_DIR = os.environ.get("AFQ_CHROMA", os.path.join(REPO, ".chroma"))
+PKG = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))          # .../autoqa
+KNOW_DIR = os.environ.get("AFQ_KNOWLEDGE", os.path.join(PKG, "data", "knowledge"))
+CHROMA_DIR = os.environ.get("AFQ_CHROMA", os.path.join(os.getcwd(), ".chroma"))
 COLLECTION = "afq_knowledge"
 
 _collection = None  # lazy singleton
@@ -129,14 +129,14 @@ def retrieve(query: str, k: int = 3) -> list[dict]:
         return []
 
 
-def main() -> int:
+def main(argv=None) -> int:
     ap = argparse.ArgumentParser(description=__doc__)
     sub = ap.add_subparsers(dest="cmd", required=True)
     sub.add_parser("build")
     q = sub.add_parser("query")
     q.add_argument("text")
     q.add_argument("-k", type=int, default=3)
-    args = ap.parse_args()
+    args = ap.parse_args(argv)
     if args.cmd == "build":
         build()
     else:

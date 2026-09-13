@@ -16,7 +16,7 @@ services:
     env_file: .env             # APP_PASSWORD (required), ANTHROPIC_API_KEY (for agent review)
     volumes:
       - ./runs:/app/runs       # QC results live on the host, not in the container
-      - ./staged:/app/staged   # drop staged fMRIPrep subsets here (see stage_inputs.py)
+      - ./staged:/app/staged   # drop staged fMRIPrep subsets here (see `autoqa stage`)
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "python3", "-c",

@@ -1,8 +1,13 @@
+# Runtime deps for the Docker image (render + llm + web extras), pinned loosely.
+# Kept separate from pyproject.toml so Docker can install dependencies in a
+# cached layer before the source is copied. For development use:
+#     pip install -e .[all,dev]
 pyyaml>=6.0
-playwright>=1.40        # SVG rendering via headless chromium (run: playwright install chromium)
+pydantic>=2.0
 Pillow>=10.0
-anthropic>=0.40         # agent review + findings writing
-python-dotenv>=1.0      # loads .env (ANTHROPIC_API_KEY, APP_PASSWORD) automatically
-fastapi>=0.110          # web API (api/main.py)
-uvicorn>=0.29           # ASGI server: uvicorn api.main:app
-chromadb>=1.0           # RAG over docs/knowledge (agents/rag.py)
+playwright>=1.40
+anthropic>=0.40
+chromadb>=1.0
+python-dotenv>=1.0
+fastapi>=0.110
+uvicorn>=0.29

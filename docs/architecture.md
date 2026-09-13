@@ -35,5 +35,6 @@ multiband/TR-scaling trap (respiratory pseudomotion at TR≈0.6s).
 ## Provenance rules
 
 - metrics are per scan (session); never pool sessions of a subject
-- criteria.yaml is versioned+dated; every artifact footer prints its version
+- criteria.yaml (`autoqa/data/criteria.yaml`, validated by `autoqa.criteria`) is
+  versioned+dated; every artifact footer prints its version
 - LLM output is advisory: it can flag (VERIFY) but never changes a computed status

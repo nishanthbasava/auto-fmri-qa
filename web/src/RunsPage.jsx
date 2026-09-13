@@ -86,7 +86,7 @@ export default function RunsPage({ onOpen }) {
         {!inputs.length && (
           <p className="pill" style={{ marginTop: 8 }}>
             No staged inputs found — copy an fMRIPrep light subset into <span className="mono">staged/</span>{" "}
-            (see <span className="mono">stage_inputs.py</span>).
+            (see <span className="mono">autoqa stage</span>).
           </p>
         )}
         {err && <p className="err">{err}</p>}

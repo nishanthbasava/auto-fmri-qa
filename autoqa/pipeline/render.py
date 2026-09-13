@@ -76,3 +76,16 @@ def render_run(state, scale: float = 1.5, quality: int = 85):
             f"identical registration renders across subjects (template-layer bug?): {dupes[:5]}")
     state.mark_stage("render", n=len(jobs))
     print(f"rendered {len(jobs)} figures -> {out_dir}")
+
+
+def main(argv=None) -> int:
+    """`autoqa render RUN_DIR` -- render figures for an existing run."""
+    import argparse
+    from .state import RunState
+    ap = argparse.ArgumentParser(description="Render fMRIPrep QC SVGs of a run to JPEG.")
+    ap.add_argument("run_dir")
+    ap.add_argument("--scale", type=float, default=1.5)
+    ap.add_argument("--quality", type=int, default=85)
+    args = ap.parse_args(argv)
+    render_run(RunState(args.run_dir), scale=args.scale, quality=args.quality)
+    return 0

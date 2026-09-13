@@ -1,6 +1,6 @@
 """FastAPI backend for auto-fmri-qa.
 
-    uvicorn api.main:app --host 0.0.0.0 --port 8000     (from the repo root)
+    autoqa serve  (== uvicorn autoqa.api.main:app --host 0.0.0.0 --port 8000)
 
 Auth: shared lab password. Set APP_PASSWORD in .env; every request must send
     Authorization: Bearer <APP_PASSWORD>
@@ -28,11 +28,12 @@ from fastapi.responses import FileResponse
 from pydantic import BaseModel
 
 from . import jobs
+from ..criteria import default_path
 
 REPO = jobs.REPO
 RUNS_DIR = os.environ.get("AFQ_RUNS", os.path.join(REPO, "runs"))
 STAGED_DIR = os.environ.get("AFQ_STAGED", os.path.join(REPO, "staged"))
-CRITERIA = os.environ.get("AFQ_CRITERIA", os.path.join(REPO, "config", "criteria.yaml"))
+CRITERIA = default_path()   # $AFQ_CRITERIA or the packaged autoqa/data/criteria.yaml
 APP_PASSWORD = os.environ.get("APP_PASSWORD")
 
 app = FastAPI(title="auto-fmri-qa", version="1.0")
@@ -246,7 +247,7 @@ def build_deck(run_id: str, kind: str = "review"):
     if jobs.status(run_id)["phase"] in ("starting", "pipeline", "review", "deck"):
         raise HTTPException(409, "a job is already running for this run")
     jobs.launch_cmd(run_id, run_dir, "deck",
-                    ["python3", "-m", "report.build_decks", run_dir, "--deck", kind])
+                    jobs.PY + ["report", "deck", run_dir, "--deck", kind])
     return {"run_id": run_id, "job": jobs.status(run_id)}
 
 

@@ -11,7 +11,13 @@ import threading
 _LOCK = threading.Lock()
 _ACTIVE: dict[str, dict] = {}   # run_id -> {"phase": str, "returncode": int|None}
 
-REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+import sys
+
+# Working directory for subprocess stages. In a checkout this is the repo root
+# (parent of the autoqa/ package); in the Docker image it is /app. Stages are
+# launched as `python -m autoqa.cli ...` so they resolve the same installed package.
+REPO = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+PY = [sys.executable, "-m", "autoqa.cli"]
 
 
 def launch(run_id: str, run_dir: str, input_dir: str, criteria: str,
@@ -58,11 +64,10 @@ def _work(run_id, run_dir, input_dir, criteria, do_render, do_review):
     os.makedirs(run_dir, exist_ok=True)
     log = open(os.path.join(run_dir, "job.log"), "a")
     steps = [("pipeline",
-              ["python3", "-m", "pipeline.run", "--input", input_dir,
-               "--criteria", criteria, "--out", run_dir]
+              PY + ["run", "--input", input_dir, "--criteria", criteria, "--out", run_dir]
               + (["--render"] if do_render else []))]
     if do_review:
-        steps.append(("review", ["python3", "-m", "agents.review_figures", run_dir]))
+        steps.append(("review", PY + ["review", run_dir]))
     rc = 0
     for phase, cmd in steps:
         with _LOCK:

@@ -17,21 +17,21 @@ RUN pip install --no-cache-dir -r requirements.txt
 RUN playwright install --with-deps chromium
 
 # node + pptxgenjs for deck builds. Installed into /app/node_modules so
-# report/deck_case_slides.js resolves it by walking up from /app/report.
+# autoqa/report/deck_case_slides.js resolves it by walking up from there.
 RUN apt-get update && apt-get install -y --no-install-recommends nodejs npm \
     && rm -rf /var/lib/apt/lists/* \
     && npm install pptxgenjs
 
 # Source last: editing code only rebuilds from here down (seconds, not minutes).
-COPY config/ config/
-COPY pipeline/ pipeline/
-COPY agents/ agents/
-COPY report/ report/
-COPY api/ api/
+# --no-deps: every dependency was already installed from requirements.txt above,
+# so this layer only registers the package + the `autoqa` console script.
+COPY pyproject.toml README.md ./
+COPY autoqa/ autoqa/
+RUN pip install --no-cache-dir --no-deps .
 
 # runs/ and staged/ are volumes mounted by docker-compose -- data lives on the
 # host, so rebuilding or recreating the container never touches QC results.
 RUN mkdir -p runs staged
 
 EXPOSE 8000
-CMD ["uvicorn", "api.main:app", "--host", "0.0.0.0", "--port", "8000"]
+CMD ["autoqa", "serve", "--host", "0.0.0.0", "--port", "8000"]

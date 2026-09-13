@@ -1,7 +1,7 @@
 """Emit a single static HTML dashboard for a run: sortable scan table with
 thumbnails, status/verify filters, criteria stamp. No server needed.
 
-    python -m report.dashboard runs/<run>/     ->  runs/<run>/dashboard.html
+    autoqa report dashboard runs/<run>/     ->  runs/<run>/dashboard.html
 """
 import argparse
 import base64
@@ -9,7 +9,7 @@ import html
 import json
 import os
 
-from pipeline.state import RunState
+from ..pipeline.state import RunState
 
 CSS = """
 body{font-family:-apple-system,Segoe UI,sans-serif;margin:24px;color:#1f2937;background:#fff}
@@ -58,10 +58,10 @@ def thumb(path, max_bytes=60000):
         return None
 
 
-def main() -> int:
+def main(argv=None) -> int:
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("run_dir")
-    args = ap.parse_args()
+    args = ap.parse_args(argv)
     state = RunState(args.run_dir)
     crit = state.data.get("criteria", {})
     scans = sorted(state.scans().values(), key=lambda s: (s["sub"], s["ses"]))

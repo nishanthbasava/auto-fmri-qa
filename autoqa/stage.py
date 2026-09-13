@@ -1,13 +1,12 @@
-#!/usr/bin/env python3
 """Stage the light QC subset out of an fMRIPrep derivatives tree.
 
 Run this ON the cluster. Copies only what QC needs -- confounds TSVs, BOLD JSON
 sidecars, and the figures/ SVGs -- into an output folder that mirrors the
 derivatives layout. NIfTIs are never touched (~MBs per subject instead of GBs).
 
-    python stage_inputs.py /path/to/derivatives -o staged/ [--task rest]
+    autoqa stage /path/to/derivatives -o staged/ [--task rest]
 
-The output folder is a valid --input for pipeline.run.
+The output folder is a valid --input for `autoqa run`.
 """
 import argparse
 import glob
@@ -16,12 +15,12 @@ import shutil
 import sys
 
 
-def main() -> int:
+def main(argv=None) -> int:
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("derivatives", help="fMRIPrep derivatives root")
     ap.add_argument("-o", "--out", required=True, help="output folder for the staged subset")
     ap.add_argument("--task", default=None, help="only stage this task (e.g. rest)")
-    args = ap.parse_args()
+    args = ap.parse_args(argv)
 
     root = os.path.abspath(args.derivatives)
     out = os.path.abspath(args.out)
