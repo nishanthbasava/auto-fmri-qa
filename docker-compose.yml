@@ -5,18 +5,39 @@
 #
 # IMPORTANT (ADNI DUA): this must stay on the lab network. Bind port 8080 only
 # on a machine that is not internet-reachable, and do not port-forward it.
-# The api container is intentionally NOT published to the host -- the only way
-# in is through nginx, and every /api request needs the APP_PASSWORD bearer
-# token from .env.
+# Neither the api nor the db container is published to the host -- the only way
+# in is through nginx, and every /api request needs a user token.
 services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: autoqa
+      POSTGRES_USER: autoqa
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-autoqa-dev}
+    volumes:
+      - pgdata:/var/lib/postgresql/data   # decisions + audit log survive rebuilds
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U autoqa -d autoqa"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    restart: unless-stopped
+
   api:
     build:
       context: .
       dockerfile: docker/Dockerfile.api
-    env_file: .env             # APP_PASSWORD (required), ANTHROPIC_API_KEY (for agent review)
+    env_file: .env             # JWT_SECRET, ANTHROPIC_API_KEY, optional APP_PASSWORD
+    environment:
+      DATABASE_URL: postgresql+psycopg://autoqa:${POSTGRES_PASSWORD:-autoqa-dev}@db:5432/autoqa
+      AFQ_RUNS: /app/runs
+      AFQ_STAGED: /app/staged
     volumes:
       - ./runs:/app/runs       # QC results live on the host, not in the container
       - ./staged:/app/staged   # drop staged fMRIPrep subsets here (see `autoqa stage`)
+    depends_on:
+      db:
+        condition: service_healthy   # migrations need a ready Postgres, not just a started one
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "python3", "-c",
@@ -34,3 +55,6 @@ services:
     depends_on:
       - api
     restart: unless-stopped
+
+volumes:
+  pgdata:

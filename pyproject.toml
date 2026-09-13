@@ -25,7 +25,11 @@ dependencies = [
 [project.optional-dependencies]
 render = ["playwright>=1.40"]                       # SVG -> JPEG; then: playwright install chromium
 llm = ["anthropic>=0.40", "chromadb>=1.0", "python-dotenv>=1.0"]
-web = ["fastapi>=0.110", "uvicorn>=0.29", "python-dotenv>=1.0"]
+web = [
+  "fastapi>=0.110", "uvicorn>=0.29", "python-dotenv>=1.0",
+  "sqlalchemy>=2.0", "alembic>=1.13", "psycopg[binary]>=3.1",
+  "pyjwt>=2.8", "argon2-cffi>=23.1",
+]
 dev = ["pytest>=8", "pytest-cov>=5", "ruff>=0.5", "httpx>=0.27"]
 all = ["auto-fmri-qa[render,llm,web]"]
 
@@ -39,7 +43,8 @@ Repository = "https://github.com/nishanthbasava/auto-fmri-qa"
 include = ["autoqa*"]
 
 [tool.setuptools.package-data]
-autoqa = ["data/*.yaml", "data/knowledge/*.md", "agents/prompts/*.md", "report/*.js"]
+autoqa = ["data/*.yaml", "data/knowledge/*.md", "agents/prompts/*.md", "report/*.js",
+          "db/migrations/*.py", "db/migrations/*.mako", "db/migrations/versions/*.py"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
@@ -53,3 +58,6 @@ target-version = "py310"
 [tool.ruff.lint]
 select = ["E", "F", "I", "B", "UP"]
 ignore = ["E501"]
+
+[tool.ruff.lint.per-file-ignores]
+"autoqa/api/*.py" = ["B008"]   # FastAPI's Depends() in defaults is the framework idiom

@@ -8,6 +8,8 @@
     autoqa rag      build | query "..."                         knowledge-base index
     autoqa stage    /derivatives -o staged/                     copy the light subset (on the cluster)
     autoqa serve    [--host 0.0.0.0 --port 8000]                the FastAPI backend
+    autoqa users    add NAME --role admin | list                accounts for the review app
+    autoqa db       upgrade | current | sync-journal RUN_DIR    migrations; DB decisions -> state.json
     autoqa criteria [path]                                      validate + print a criteria file
     autoqa demo     --out staged/demo [--subjects 24]           synthetic cohort (no real data)
     autoqa audit    pooling|surface runs/qc1                    reportable numbers from a run
@@ -90,6 +92,61 @@ def _demo(argv):
     return main(argv)
 
 
+def _users(argv):
+    ap = argparse.ArgumentParser(prog="autoqa users")
+    sp = ap.add_subparsers(dest="cmd", required=True)
+    a = sp.add_parser("add")
+    a.add_argument("username")
+    a.add_argument("--role", default="viewer", choices=["viewer", "reviewer", "admin"])
+    a.add_argument("--password", default=None, help="prompted if omitted")
+    sp.add_parser("list")
+    args = ap.parse_args(argv)
+    from .db import migrate
+    from .db.session import session
+    migrate.upgrade()
+    if args.cmd == "add":
+        import getpass
+
+        from .api.auth import create_user
+        pw = args.password or getpass.getpass(f"password for {args.username}: ")
+        try:
+            with session() as db:
+                u = create_user(db, args.username, pw, args.role)
+                print(f"created {u.username} ({u.role})")
+        except ValueError as e:
+            print(f"error: {e}", file=sys.stderr)
+            return 1
+    else:
+        from sqlalchemy import select
+
+        from .db.models import User
+        with session() as db:
+            for u in db.scalars(select(User).order_by(User.username)):
+                print(f"{u.username:20s} {u.role:9s} {'active' if u.active else 'disabled'}")
+    return 0
+
+
+def _db(argv):
+    ap = argparse.ArgumentParser(prog="autoqa db")
+    sp = ap.add_subparsers(dest="cmd", required=True)
+    sp.add_parser("upgrade", help="apply migrations (idempotent)")
+    sp.add_parser("current", help="show the schema revision")
+    sj = sp.add_parser("sync-journal", help="write latest DB decisions into RUN_DIR/state.json")
+    sj.add_argument("run_dir")
+    args = ap.parse_args(argv)
+    from .db import migrate
+    if args.cmd == "upgrade":
+        migrate.upgrade()
+        print("schema up to date")
+    elif args.cmd == "current":
+        migrate.current()
+    else:
+        from .db.sync import sync_journal
+        n = sync_journal(args.run_dir)
+        print(f"wrote {n} decision(s) into {args.run_dir}/state.json")
+    return 0
+
+
 def _criteria(argv):
     ap = argparse.ArgumentParser(prog="autoqa criteria",
                                  description="Validate a criteria file and print it.")
@@ -113,6 +170,7 @@ COMMANDS = {
     "run": _run, "render": _render, "review": _review, "report": _report,
     "lists": _lists, "rag": _rag, "stage": _stage, "serve": _serve,
     "criteria": _criteria, "demo": _demo, "audit": _audit,
+    "users": _users, "db": _db,
 }
 
 

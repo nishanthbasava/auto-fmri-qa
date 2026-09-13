@@ -71,7 +71,8 @@ under chromium, the frontend build, and both Docker images on every push.
       agents/              LLM layer: figure review (vision, forced tool call validated by
                            pydantic, RAG-grounded, retried, costed); rag.py; schemas.py
       report/              deck builder (pptx) + static HTML dashboard
-      api/                 FastAPI backend for the review app (web/ is the React frontend)
+      api/                 FastAPI backend: auth (argon2 + JWT, roles), audit, timing middleware
+      db/                  SQLAlchemy models, Alembic migrations, DB -> journal sync
       stage.py, lists.py   cluster-side staging; scan-level list export
       cli.py               the `autoqa` command
     scripts/               cluster-only helpers (sort_qc_scans.py, slurm/, protocol plots)
@@ -114,9 +115,11 @@ every deliverable footer prints the version.
 
     docker compose up -d --build     # then open http://<lab-machine>:8080
 
-Two containers: `api` (FastAPI + the whole pipeline, internal-only) and `web`
-(nginx serving the React app, proxying `/api`). Secrets come from `.env`
-(`APP_PASSWORD`, `ANTHROPIC_API_KEY`); results live in `./runs`, inputs in
-`./staged` — both survive rebuilds. Full walkthrough + Docker primer:
-[docs/deploy.md](docs/deploy.md). **ADNI DUA: lab network only — never expose
-port 8080 to the internet.**
+Three containers: `db` (Postgres: users, append-only decisions, audit log), `api`
+(FastAPI + the whole pipeline, internal-only) and `web` (nginx serving the React
+app, proxying `/api`). Per-user accounts with viewer / reviewer / admin roles
+(`autoqa users add`), JWT sessions, an audit trail on every mutation, and
+`/api/metrics` with p50/p95/p99 per route. Secrets come from `.env` (see
+`.env.example`); results live in `./runs`, inputs in `./staged` — both survive
+rebuilds. Full walkthrough + Docker primer: [docs/deploy.md](docs/deploy.md).
+**ADNI DUA: lab network only — never expose port 8080 to the internet.**

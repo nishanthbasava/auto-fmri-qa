@@ -34,4 +34,5 @@ RUN pip install --no-cache-dir --no-deps .
 RUN mkdir -p runs staged
 
 EXPOSE 8000
-CMD ["autoqa", "serve", "--host", "0.0.0.0", "--port", "8000"]
+COPY docker/entrypoint.sh /entrypoint.sh
+CMD ["/entrypoint.sh"]

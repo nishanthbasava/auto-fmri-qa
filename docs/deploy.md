@@ -11,12 +11,16 @@ Anything a container writes to its own filesystem dies with it — which is why
 everything we care about (`runs/`, `staged/`, `.env`) lives *outside* the
 containers and is attached at start time.
 
-This platform is two images:
+This platform is three containers:
 
 | service | image contents | talks to |
 |---|---|---|
-| `api`   | Python + Chromium + node, the pipeline, FastAPI on :8000 | nobody directly — internal only |
+| `db`    | Postgres 16: users, review decisions, audit log (named volume `pgdata`) | `api` only |
+| `api`   | Python + Chromium + node, the pipeline, FastAPI on :8000 | `db`; not published |
 | `web`   | nginx + the built React bundle on :80 | published as :8080, proxies `/api/*` to `api` |
+
+`api` waits for `db`'s healthcheck (`pg_isready`), then its entrypoint runs
+`autoqa db upgrade` (Alembic migrations, idempotent) before `autoqa serve`.
 
 The browser only ever sees one origin (`http://lab-machine:8080`); nginx
 forwards `/api/*` over Docker's private network to the api container. The api
@@ -65,9 +69,8 @@ entirely.
 ```bash
 # 0) one-time: install Docker Desktop (mac) or docker engine + compose (linux)
 
-# 1) secrets -- .env in the repo root (gitignored AND dockerignored):
-#      APP_PASSWORD=<shared lab password>
-#      ANTHROPIC_API_KEY=sk-ant-...        # only needed for agent figure review
+# 1) secrets -- copy .env.example to .env (gitignored AND dockerignored) and fill in
+#      JWT_SECRET, POSTGRES_PASSWORD, ANTHROPIC_API_KEY
 
 # 2) data -- put a staged fMRIPrep subset in staged/ (from the cluster):
 #      autoqa stage /path/to/derivatives -o staged/batch1 --task rest
@@ -75,8 +78,13 @@ entirely.
 # 3) build + start (first build ~5-10 min, mostly the Chromium layer):
 docker compose up -d --build
 
-# 4) open http://<lab-machine-ip>:8080 from any machine on the lab network,
-#    enter the lab password, launch a run.
+# 4) create the first admin, then reviewers:
+docker compose exec api autoqa users add <you> --role admin
+docker compose exec api autoqa users add <colleague> --role reviewer
+
+# 5) open http://<lab-machine-ip>:8080 from any machine on the lab network,
+#    log in, launch a run. Roles: viewer (read), reviewer (keep/drop decisions),
+#    admin (launch runs, build decks, audit log at /api/audit, manage users).
 
 # observe / operate:
 docker compose ps                 # status + health
@@ -88,10 +96,23 @@ docker compose down               # stop (runs/ and staged/ are untouched)
 After editing code: `docker compose up -d --build` again — only the changed
 layers rebuild.
 
+## Data model
+
+- `runs/<run>/state.json` is the pipeline's journal: metrics, labels, rendered
+  figures, LLM review. The API reads it; it never writes decisions into it.
+- Postgres holds what people do: `users`, `decisions` (append-only -- a
+  "clear" is a new row, the current decision is the latest row) and
+  `audit_events` (login, launch, decision, deck build; actor, target, IP,
+  before/after). On Postgres the migration revokes UPDATE/DELETE on both
+  append-only tables from the app role.
+- `autoqa db sync-journal runs/<run>` copies the latest decisions into the
+  journal for the deck builder and `autoqa audit surface`.
+- `GET /api/metrics` (Prometheus text) and `/api/metrics.json` report p50/p95/p99
+  latency per route from a per-route reservoir of real samples.
+
 ## ADNI DUA boundary
 
 Keep this on the lab network only: bind on a machine that is not
 internet-reachable, never port-forward 8080, and leave the api service
-unpublished (it already is). The shared password gates every endpoint, and the
-API refuses to start serving without one — but network isolation is the real
-control; the password is defense in depth.
+unpublished (it already is). Per-user login gates every endpoint and every mutation is audited — but
+network isolation is the real control; auth is defense in depth.
