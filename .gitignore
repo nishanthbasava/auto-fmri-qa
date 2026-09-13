@@ -1,12 +1,10 @@
 __pycache__/
 *.pyc
+.venv/
 .locks-trash/
-runs/
 node_modules/
 .env
 web/dist/
 .chroma/
-staged/
 .DS_Store
-lists/
-lists_final/
+artifacts/
