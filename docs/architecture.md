@@ -15,9 +15,14 @@ All stage outputs land in runs/<run>/ and are recorded in state.json.
 
 ## Agent layers (judgment only)
 
-- **figure review** (vision): batches rendered figures to the model with a QC checklist;
-  returns structured JSON (rating, note, concern level) per scan. Catches what metrics
-  can't: truncated FOV, saturated/ghosted EPI, misregistration, failed skull strip.
+- **figure review** (vision): batches rendered figures to the model with a QC checklist
+  and retrieved protocol context ("Reference notes" from `autoqa/data/knowledge/`, chosen
+  per scan by TR regime / vendor / panels — `rag.context_for_scans`). The model is forced
+  to call a `record_reviews` tool whose schema is generated from pydantic models, so
+  output is validated before it touches the journal; rate limits are retried with backoff;
+  token usage and USD are accumulated per run. Catches what metrics can't: truncated FOV,
+  saturated/ghosted EPI, misregistration, failed skull strip. `--no-rag` exists so the
+  effect of grounding can be measured.
 - **findings writer**: turns run stats + review JSON into the summary slide bullets.
   Never invents numbers — it is handed the computed values and forbidden to compute.
 

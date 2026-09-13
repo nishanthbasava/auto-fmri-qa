@@ -31,8 +31,7 @@ rendering, and deck assembly never depend on a model.
     autoqa run --input staged/batch1 --out runs/$(date +%Y%m%d) --render
     autoqa lists runs/<run> -o lists/                  # included/caution/excluded CSVs
     # optional LLM review + reports (needs ANTHROPIC_API_KEY):
-    autoqa rag build
-    autoqa review runs/<run>
+    autoqa review runs/<run>            # grounded in autoqa/data/knowledge via RAG; --no-rag to ablate
     autoqa report deck runs/<run> --deck review
     autoqa report dashboard runs/<run>
 
@@ -69,7 +68,8 @@ under chromium, the frontend build, and both Docker images on every push.
       criteria.py          pydantic schema for criteria.yaml; loaded/validated once per run
       analysis/            audits over a finished run: pooling flips, review surface
       pipeline/            deterministic stages: discover → metrics → classify → render
-      agents/              LLM layers: figure review (vision, structured JSON) + RAG
+      agents/              LLM layer: figure review (vision, forced tool call validated by
+                           pydantic, RAG-grounded, retried, costed); rag.py; schemas.py
       report/              deck builder (pptx) + static HTML dashboard
       api/                 FastAPI backend for the review app (web/ is the React frontend)
       stage.py, lists.py   cluster-side staging; scan-level list export

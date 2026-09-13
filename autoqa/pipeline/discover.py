@@ -33,10 +33,12 @@ def discover(input_dir: str, task: str = "rest"):
         base = os.path.basename(tsv)
         sub, ses = _entity(base, "sub"), _entity(base, "ses") or "ses-none"
         subj_dir = os.path.join(input_dir, sub)
-        tr = None
+        tr, vendor = None, None
         for j in glob.glob(tsv.replace("_desc-confounds_timeseries.tsv", "*bold.json")):
             try:
-                tr = json.load(open(j)).get("RepetitionTime")
+                meta = json.load(open(j))
+                tr = meta.get("RepetitionTime")
+                vendor = meta.get("Manufacturer")
                 break
             except (OSError, json.JSONDecodeError):
                 pass
@@ -59,7 +61,7 @@ def discover(input_dir: str, task: str = "rest"):
                    {"confounds": tsv, "TR": tr, "coreg": coreg,
                     "carpet": carpet, "t1norm": t1norm}.items() if not v]
         scans.append({
-            "sub": sub, "ses": ses, "tr": tr, "confounds": tsv,
+            "sub": sub, "ses": ses, "tr": tr, "vendor": vendor, "confounds": tsv,
             "figures": {"coreg": coreg, "carpet": carpet, "t1norm": t1norm},
             "t1norm_subject_level": bool(t1norm and "ses-" not in os.path.basename(t1norm)),
             "missing": missing,

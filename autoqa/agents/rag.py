@@ -3,10 +3,19 @@
     autoqa rag build              # (re)index the knowledge docs
     autoqa rag query "multiband FD threshold"
 
-Retrieval is deliberately rare and advisory: it runs only when the visual-review
-agent rates a scan "concern" or "bad" (a handful of scans per cohort), attaching
-the most relevant documentation passages as citations to the review note. It
-never touches metrics or statuses.
+Two uses, both advisory (retrieval never touches metrics or statuses):
+
+  1. GROUNDING (before review): `context_for_scans()` builds a query from each
+     scan's facts -- TR regime, scanner vendor, run length, which panels exist --
+     and the top passages are placed in the prompt as "Reference notes" so the
+     model judges figures against the cohort's actual protocol (e.g. respiratory
+     pseudomotion on multiband runs is expected, not motion).
+  2. CITATION (after review): when a scan is rated "concern"/"bad", `retrieve()`
+     on the model's note attaches the passages that best explain the finding.
+
+If chromadb is not installed or the index was never built, retrieval falls back
+to an in-memory cosine search over the same hashed embedding -- the knowledge
+base is ~20 chunks, so this is instant and needs no dependencies.
 
 Chunks are the "## " sections of each markdown doc; each chunk carries its
 source file, section heading, and the doc's "Source:" line as metadata, so every
@@ -112,9 +121,26 @@ def build() -> int:
     return len(ids)
 
 
+def _fallback_retrieve(query: str, k: int) -> list[dict]:
+    """Dependency-free cosine search over the knowledge chunks (same embedding)."""
+    ef = LexicalHashEmbedding()
+    chunks = list(_chunks())
+    if not chunks:
+        return []
+    qv = ef([query])[0]
+    out = []
+    for (cid, text, meta), dv in zip(chunks, ef([c[1] for c in chunks]), strict=True):
+        sim = sum(a * b for a, b in zip(qv, dv, strict=True))
+        out.append((1.0 - sim, cid, text, meta))
+    out.sort(key=lambda t: t[0])
+    return [{"source": m["source"], "file": m["file"], "section": m["section"],
+             "snippet": t[:400], "text": t, "distance": round(d, 3)}
+            for d, _, t, m in out[:k]]
+
+
 def retrieve(query: str, k: int = 3) -> list[dict]:
-    """Top-k passages for a query. Returns [] on any failure -- RAG must never
-    block the pipeline (missing index, missing chromadb, offline embedder)."""
+    """Top-k passages for a query. Never raises -- RAG must never block the
+    pipeline. Uses the chroma index when available, else the in-memory fallback."""
     try:
         col = _get_collection()
         res = col.query(query_texts=[query], n_results=k)
@@ -123,10 +149,55 @@ def retrieve(query: str, k: int = 3) -> list[dict]:
                                    res["distances"][0], strict=True):
             out.append({"source": meta["source"], "file": meta["file"],
                         "section": meta["section"],
-                        "snippet": doc[:400], "distance": round(dist, 3)})
+                        "snippet": doc[:400], "text": doc, "distance": round(dist, 3)})
         return out
     except Exception:
-        return []
+        try:
+            return _fallback_retrieve(query, k)
+        except Exception:
+            return []
+
+
+def scan_query(scan: dict) -> str:
+    """Query text from a scan's facts (no free text from the model involved)."""
+    m = scan.get("metrics") or {}
+    tr = m.get("tr") or scan.get("tr") or 3.0
+    parts = ["visual QC checklist carpet plot coregistration EPI contours T1w MNI registration"]
+    if tr < 1.0:
+        parts.append(f"multiband fast TR {tr:.3f} s respiratory pseudomotion FD oscillation")
+    else:
+        parts.append(f"single-band TR {tr:.1f} s FD spike threshold")
+    if scan.get("vendor"):
+        parts.append(f"{scan['vendor']} scanner DVARS")
+    if m.get("n_volumes"):
+        parts.append(f"{m['n_volumes']} volumes run length")
+    figs = scan.get("rendered") or scan.get("figures") or {}
+    parts.extend(k for k, v in figs.items() if v)
+    return " ".join(parts)
+
+
+def context_for_scans(scans: list[dict], k: int = 2, cap: int = 4) -> list[dict]:
+    """Union of the top-k passages for each scan in a batch, deduplicated by
+    chunk and capped, so the prompt carries the protocol facts these scans need."""
+    seen, out = set(), []
+    for s in scans:
+        for p in retrieve(scan_query(s), k=k):
+            key = (p["file"], p["section"])
+            if key in seen:
+                continue
+            seen.add(key)
+            out.append(p)
+    return out[:cap]
+
+
+def format_context(passages: list[dict]) -> str:
+    if not passages:
+        return ""
+    lines = ["Reference notes (from the cohort's protocol/QC documentation; use them to "
+             "decide what is normal for THIS cohort):"]
+    for i, p in enumerate(passages, 1):
+        lines.append(f"\n[{i}] {p['file']} / {p['section']}\n{p.get('text', p['snippet']).strip()}")
+    return "\n".join(lines)
 
 
 def main(argv=None) -> int:
