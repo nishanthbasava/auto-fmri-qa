@@ -67,6 +67,7 @@ under chromium, the frontend build, and both Docker images on every push.
       data/criteria.yaml   every threshold, versioned and dated — the QC contract
       data/knowledge/      protocol + QC reference docs the review agent retrieves from
       criteria.py          pydantic schema for criteria.yaml; loaded/validated once per run
+      analysis/            audits over a finished run: pooling flips, review surface
       pipeline/            deterministic stages: discover → metrics → classify → render
       agents/              LLM layers: figure review (vision, structured JSON) + RAG
       report/              deck builder (pptx) + static HTML dashboard
@@ -87,6 +88,20 @@ Any derivatives-shaped tree works — the pipeline only needs, per scan:
 
 Pointing `--input` directly at a full derivatives tree on the cluster also works;
 `autoqa stage` exists so the NIfTIs never need to leave the cluster.
+
+## Numbers a run can report
+
+    autoqa audit pooling runs/<run> [--input staged/...]   # per-scan vs subject-pooled labels
+    autoqa audit surface runs/<run>                        # how many scans still need human eyes
+
+`pooling` reproduces the session-pooling bug: the lab's original workflow
+concatenated all of a subject's sessions before thresholding, which changes the
+label of a session whenever a clean and a bad session share a subject. On the
+458-scan ADNI pass (absolute-DVARS criteria) that flips 18 labels — 5 where
+pooling hides a problem, 13 where it penalises a clean scan. `surface` reports
+the fraction of the cohort a reviewer no longer has to open (66–82% on that
+pass depending on criteria and whether confirmed EXCLUDEs count), alongside the
+misses and false alarms once human decisions exist in the journal.
 
 ## Criteria
 
