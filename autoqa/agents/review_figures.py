@@ -48,7 +48,7 @@ def main(argv=None) -> int:
     for i in range(0, len(todo), args.batch):
         batch = todo[i:i + args.batch]
         content = []
-        for key, s, figs in batch:
+        for _key, s, figs in batch:
             content.append({"type": "text",
                             "text": f"Scan: sub={s['sub']} ses={s['ses']} "
                                     f"(mean FD {s['metrics'].get('mean_fd')}, "

@@ -38,7 +38,7 @@ def scan_writer(tmp_path):
         tsv = (tmp_path / sub / ses / "func" / f"{sub}_{ses}_task-rest_desc-confounds_timeseries.tsv")
         with open(tsv, "w") as f:
             f.write("framewise_displacement\tstd_dvars\n")
-            for a, b in zip(fd, dv):
+            for a, b in zip(fd, dv, strict=True):
                 f.write(f"{'n/a' if a is None else a}\t{b}\n")
         scans = discover.discover(str(tmp_path))
         return next(s for s in scans if s["sub"] == sub and s["ses"] == ses)

@@ -152,7 +152,7 @@ def generate(out: str, subjects: int = 24, seed: int = 7,
     """Write a whole cohort. Returns the specs (so tests know expected labels)."""
     rng = random.Random(seed)
     mix = mix or DEFAULT_MIX
-    names, weights = zip(*mix.items())
+    names, weights = zip(*mix.items(), strict=True)
     specs = []
     for i in range(subjects):
         sub = f"sub-{i + 1:03d}S{rng.randint(1000, 9999)}"

@@ -27,8 +27,8 @@ from fastapi import Depends, FastAPI, HTTPException, Request
 from fastapi.responses import FileResponse
 from pydantic import BaseModel
 
-from . import jobs
 from ..criteria import default_path
+from . import jobs
 
 REPO = jobs.REPO
 RUNS_DIR = os.environ.get("AFQ_RUNS", os.path.join(REPO, "runs"))
@@ -151,7 +151,7 @@ def launch_run(body: LaunchBody):
         jobs.launch(run_id, run_dir, input_dir, CRITERIA,
                     do_render=body.render, do_review=body.review)
     except RuntimeError as e:
-        raise HTTPException(409, str(e))
+        raise HTTPException(409, str(e)) from e
     return {"run_id": run_id, "job": jobs.status(run_id)}
 
 

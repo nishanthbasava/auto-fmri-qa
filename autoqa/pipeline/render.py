@@ -22,7 +22,7 @@ def render_run(state, scale: float = 1.5, quality: int = 85):
     out_dir = os.path.join(state.run_dir, "figures")
     os.makedirs(out_dir, exist_ok=True)
     jobs = []  # (svg, out_jpg, is_registration)
-    for key, s in state.scans().items():
+    for s in state.scans().values():
         for kind, svg in s["figures"].items():
             if not svg:
                 continue
@@ -60,7 +60,7 @@ def render_run(state, scale: float = 1.5, quality: int = 85):
     # integrity: registration renders must be unique per subject
     seen = {}
     dupes = []
-    for key, s in state.scans().items():
+    for s in state.scans().values():
         for k in REG_KINDS:
             path = s.get("rendered", {}).get(k)
             if not path or not os.path.exists(path):
@@ -81,6 +81,7 @@ def render_run(state, scale: float = 1.5, quality: int = 85):
 def main(argv=None) -> int:
     """`autoqa render RUN_DIR` -- render figures for an existing run."""
     import argparse
+
     from .state import RunState
     ap = argparse.ArgumentParser(description="Render fMRIPrep QC SVGs of a run to JPEG.")
     ap.add_argument("run_dir")

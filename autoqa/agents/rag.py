@@ -120,7 +120,7 @@ def retrieve(query: str, k: int = 3) -> list[dict]:
         res = col.query(query_texts=[query], n_results=k)
         out = []
         for doc, meta, dist in zip(res["documents"][0], res["metadatas"][0],
-                                   res["distances"][0]):
+                                   res["distances"][0], strict=True):
             out.append({"source": meta["source"], "file": meta["file"],
                         "section": meta["section"],
                         "snippet": doc[:400], "distance": round(dist, 3)})

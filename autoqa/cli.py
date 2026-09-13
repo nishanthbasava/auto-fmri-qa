@@ -18,7 +18,6 @@ from __future__ import annotations
 
 import argparse
 import sys
-from typing import Optional
 
 
 def _run(argv):
@@ -85,6 +84,7 @@ def _criteria(argv):
     ap.add_argument("path", nargs="?", default=None)
     a = ap.parse_args(argv)
     import yaml
+
     from .criteria import default_path, load_criteria
     path = a.path or default_path()
     try:
@@ -104,7 +104,7 @@ COMMANDS = {
 }
 
 
-def main(argv: Optional[list[str]] = None) -> int:
+def main(argv: list[str] | None = None) -> int:
     argv = list(sys.argv[1:] if argv is None else argv)
     if not argv or argv[0] in ("-h", "--help"):
         print(__doc__.strip())

@@ -1,5 +1,8 @@
 # auto-fmri-qa
 
+[![ci](https://github.com/nishanthbasava/auto-fmri-qa/actions/workflows/ci.yml/badge.svg)](https://github.com/nishanthbasava/auto-fmri-qa/actions/workflows/ci.yml)
+[![codecov](https://codecov.io/gh/nishanthbasava/auto-fmri-qa/branch/main/graph/badge.svg)](https://codecov.io/gh/nishanthbasava/auto-fmri-qa)
+
 Automated QA for fMRIPrep outputs: computes per-scan motion/artifact metrics, classifies
 scans (INCLUDE / CAUTION / EXCLUDE) under versioned criteria, has an LLM review the QC
 figures for problems metrics cannot see (coverage failures, saturated EPI, misregistration),
@@ -47,6 +50,16 @@ work whose outputs already exist.
         print(s["sub"], s["ses"], s["status"], s["metrics"]["mean_fd"], s["verify_flags"])
 
     crit = autoqa.load_criteria("my_criteria.yaml")   # validated: a typo fails here, not mid-run
+
+## Development
+
+    pip install -e .[all,dev]
+    pytest                       # unit suite (synthetic data only; < 1 s)
+    pytest --cov=autoqa          # coverage; CI gates on it
+    ruff check autoqa tests      # lint (CI runs this first)
+
+CI runs lint, the test matrix (3.10–3.12) with a coverage gate, the renderer
+under chromium, the frontend build, and both Docker images on every push.
 
 ## Layout
 

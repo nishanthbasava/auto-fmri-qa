@@ -44,7 +44,7 @@ def test_tr_scaled_shrinks_fd_threshold(scan_writer, criteria_dict):
     # with a ~0.10 mm bar every volume is a "spike": the TR-scaling trap.
     # (baseline is 0.12, not 0.10, so the comparison never sits exactly on the bar)
     fd_thr, dv_thr = m["fd_spike_threshold"], m["dvars_threshold"]
-    expected = sum(1 for f, d in zip(FD, DV) if (f is not None and f > fd_thr) or d > dv_thr)
+    expected = sum(1 for f, d in zip(FD, DV, strict=True) if (f is not None and f > fd_thr) or d > dv_thr)
     assert m["n_outliers"] == expected == 9
     assert m["is_fast_tr"] is True
 

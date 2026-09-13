@@ -8,7 +8,6 @@ import json
 import os
 import re
 
-
 FIGURE_KINDS = {
     "coreg": "*desc-coreg_bold.svg",
     "carpet": "*desc-carpetplot_bold.svg",
@@ -44,7 +43,7 @@ def discover(input_dir: str, task: str = "rest"):
         figdir = os.path.join(subj_dir, "figures")
         sespat = f"{sub}_{ses}_" if ses != "ses-none" else f"{sub}_"
 
-        def fig(patt, allow_subject_level=False):
+        def fig(patt, allow_subject_level=False, figdir=figdir, sespat=sespat, sub=sub):
             # session-tagged first (e.g. sub-X_ses-Y_task-rest_desc-coreg_bold.svg)
             hits = glob.glob(os.path.join(figdir, sespat + patt))
             if not hits and allow_subject_level:

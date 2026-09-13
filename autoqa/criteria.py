@@ -18,7 +18,7 @@ from __future__ import annotations
 
 import os
 from importlib import resources
-from typing import Literal, Optional
+from typing import Literal
 
 import yaml
 from pydantic import BaseModel, ConfigDict, Field, model_validator
@@ -41,7 +41,7 @@ class OutlierDefinition(BaseModel):
 class Caution(BaseModel):
     model_config = ConfigDict(extra="forbid")
     motion_outlier_percent: float = Field(ge=0, le=100)
-    min_retained_minutes: Optional[float] = Field(default=None, gt=0)
+    min_retained_minutes: float | None = Field(default=None, gt=0)
 
 
 class VerifyFlags(BaseModel):
@@ -104,7 +104,7 @@ def default_path() -> str:
     return str(resources.files("autoqa").joinpath("data", "criteria.yaml"))
 
 
-def load_criteria(path: Optional[str] = None) -> Criteria:
+def load_criteria(path: str | None = None) -> Criteria:
     path = path or default_path()
     with open(path) as f:
         raw = yaml.safe_load(f) or {}

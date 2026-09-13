@@ -15,7 +15,6 @@ import csv
 import os
 import sys
 from dataclasses import dataclass, field
-from typing import Optional
 
 from ..criteria import Criteria, load_criteria
 from . import classify as cls
@@ -50,7 +49,7 @@ class RunResult:
         return os.path.join(self.run_dir, "scans.csv")
 
 
-def qc(input_dir: str, out: str, criteria: Optional[str | Criteria] = None,
+def qc(input_dir: str, out: str, criteria: str | Criteria | None = None,
        task: str = "rest", render: bool = False, quiet: bool = False) -> RunResult:
     """Run discover -> metrics -> classify on a derivatives-shaped tree.
 
@@ -109,7 +108,7 @@ def add_args(ap: argparse.ArgumentParser) -> None:
     ap.add_argument("--render", action="store_true", help="also render figures to JPEG")
 
 
-def main(argv: Optional[list[str]] = None) -> int:
+def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(description=__doc__,
                                  formatter_class=argparse.RawDescriptionHelpFormatter)
     add_args(ap)

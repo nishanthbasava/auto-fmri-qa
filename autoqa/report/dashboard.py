@@ -6,7 +6,6 @@ thumbnails, status/verify filters, criteria stamp. No server needed.
 import argparse
 import base64
 import html
-import json
 import os
 
 from ..pipeline.state import RunState
@@ -44,8 +43,9 @@ function srt(col,num){const tb=document.querySelector('tbody');
 def thumb(path, max_bytes=60000):
     """Inline a downscaled thumbnail as data URI (keeps the file portable)."""
     try:
-        from PIL import Image
         import io
+
+        from PIL import Image
         im = Image.open(path)
         im.thumbnail((260, 260))
         buf = io.BytesIO()

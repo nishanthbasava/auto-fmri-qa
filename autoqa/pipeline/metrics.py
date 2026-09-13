@@ -15,7 +15,7 @@ def load_traces(tsv_path: str):
         try:
             fi, di = hdr.index("framewise_displacement"), hdr.index("std_dvars")
         except ValueError as e:
-            raise ValueError(f"{tsv_path}: missing FD/std_dvars column ({e})")
+            raise ValueError(f"{tsv_path}: missing FD/std_dvars column ({e})") from e
         for row in r:
             fd.append(_num(row[fi]))
             dv.append(_num(row[di]))
@@ -51,7 +51,7 @@ def scan_metrics(scan: dict, criteria: dict) -> dict:
     med_dv = st.median(dvs) if dvs else float("nan")
     tr = scan["tr"] or 3.0
     fd_thr, dv_thr = outlier_thresholds(criteria, tr, med_dv)
-    out = sum(1 for f, d in zip(fd, dv)
+    out = sum(1 for f, d in zip(fd, dv, strict=True)
               if (f is not None and f > fd_thr) or (d is not None and d > dv_thr))
     retained_min = (n - out) * tr / 60.0
     return {

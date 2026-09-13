@@ -6,12 +6,11 @@ pipeline was already resumable/journaled, so the API just reads the journal.
 """
 import os
 import subprocess
+import sys
 import threading
 
 _LOCK = threading.Lock()
 _ACTIVE: dict[str, dict] = {}   # run_id -> {"phase": str, "returncode": int|None}
-
-import sys
 
 # Working directory for subprocess stages. In a checkout this is the repo root
 # (parent of the autoqa/ package); in the Docker image it is /app. Stages are
