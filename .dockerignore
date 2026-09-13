@@ -11,3 +11,7 @@ __pycache__
 *.pyc
 docs
 README.md
+lab_qc_scripts      # lab reference scripts + local sample data; not part of the image
+artifacts           # local QC outputs and staged ADNI subsets
+training            # fine-tuning workspace (separate requirements, GPU-only)
+.claude

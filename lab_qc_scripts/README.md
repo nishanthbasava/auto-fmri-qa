@@ -1,3 +1,15 @@
+> **Origin and scope.** This folder is the Neurdy Lab's original `fmriprep_qc`
+> workflow (subject-level completeness + confounds QA, authored in the lab for the
+> CamCAN/ADNI preprocessing work and vendored here unchanged as the reference
+> implementation). Steps 1–6 are the lab's; steps 7–8 (`step7_denoise_qc.py`,
+> `step8_denoise_report.py`) and `run_fmriprep_qc.sh` were added for the ADNI
+> denoising pass. AutoQA (the rest of this repository) re-implements steps 1–4
+> **per scan** rather than per subject — see `pipeline/` and the pooling audit —
+> and adds rendering, LLM review, and the review app.
+>
+> Sample outputs (`sub-*/`, `sample_denoised.tar.gz`) are ADNI-derived and are
+> gitignored; they must not be committed.
+
 # fMRIPrep completeness and QA workflow (`fmriprep_qc`)
 
 This folder implements **6 QA steps**:

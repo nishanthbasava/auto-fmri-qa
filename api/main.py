@@ -32,6 +32,7 @@ from . import jobs
 REPO = jobs.REPO
 RUNS_DIR = os.environ.get("AFQ_RUNS", os.path.join(REPO, "runs"))
 STAGED_DIR = os.environ.get("AFQ_STAGED", os.path.join(REPO, "staged"))
+CRITERIA = os.environ.get("AFQ_CRITERIA", os.path.join(REPO, "config", "criteria.yaml"))
 APP_PASSWORD = os.environ.get("APP_PASSWORD")
 
 app = FastAPI(title="auto-fmri-qa", version="1.0")
@@ -143,9 +144,10 @@ def launch_run(body: LaunchBody):
     run_dir = os.path.join(RUNS_DIR, run_id)
     if os.path.exists(os.path.join(run_dir, "state.json")):
         raise HTTPException(409, f"run {run_id} already exists")
-    criteria = os.path.join(REPO, "criteria.yaml")
+    if not os.path.exists(CRITERIA):
+        raise HTTPException(500, f"criteria file not found: {CRITERIA}")
     try:
-        jobs.launch(run_id, run_dir, input_dir, criteria,
+        jobs.launch(run_id, run_dir, input_dir, CRITERIA,
                     do_render=body.render, do_review=body.review)
     except RuntimeError as e:
         raise HTTPException(409, str(e))

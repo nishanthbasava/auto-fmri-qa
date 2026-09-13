@@ -8,3 +8,7 @@ web/dist/
 .chroma/
 .DS_Store
 artifacts/
+.claude/
+# ADNI-derived sample data must never be committed (DUA)
+lab_qc_scripts/sub-*/
+lab_qc_scripts/*.tar.gz

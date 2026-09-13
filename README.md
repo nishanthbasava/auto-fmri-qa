@@ -15,21 +15,23 @@ rendering, and deck assembly never depend on a model.
 
 ## Layout
 
-    criteria.yaml        every threshold, versioned and dated — the QC contract
-    stage_inputs.py      runs ON the cluster: copies the light subset (figures/confounds/
-                         sidecars) out of an fMRIPrep derivatives tree (~MBs per subject)
+    config/criteria.yaml every threshold, versioned and dated — the QC contract
+    scripts/             cluster-side helpers: stage_inputs.py copies the light subset
+                         (figures/confounds/sidecars) out of an fMRIPrep derivatives tree
+                         (~MBs per subject); sort_qc_scans.py, make_lists.py, slurm/
     pipeline/            deterministic stages: discover → metrics → classify → render
     agents/              LLM layers: figure review (vision, structured JSON), findings writer
     report/              deck builder (pptx) + static HTML dashboard
+    lab_qc_scripts/      the lab's original subject-level fmriprep_qc workflow (vendored; see its README)
     runs/<timestamp>/    all outputs of one run (gitignored)
 
 ## Quick start
 
     pip install -r requirements.txt && playwright install chromium
     # on the cluster:
-    python stage_inputs.py /path/to/derivatives -o staged/
+    python scripts/stage_inputs.py /path/to/derivatives -o staged/
     # locally:
-    python -m pipeline.run --input staged/ --criteria criteria.yaml --out runs/$(date +%Y%m%d)
+    python -m pipeline.run --input staged/ --criteria config/criteria.yaml --out runs/$(date +%Y%m%d)
     # optional LLM review + reports (needs ANTHROPIC_API_KEY):
     python -m agents.review_figures runs/<run>/
     python -m report.build_decks runs/<run>/ --deck review
@@ -47,7 +49,7 @@ Any derivatives-shaped tree works — the pipeline only needs, per scan:
     sub-*/figures/*.svg                            (coreg, carpet, T1w→MNI)
 
 Pointing `--input` directly at a full derivatives tree on the cluster also works;
-`stage_inputs.py` exists so the NIfTIs never need to leave the cluster.
+`scripts/stage_inputs.py` exists so the NIfTIs never need to leave the cluster.
 
 ## Deploy (lab machine, Docker)
 

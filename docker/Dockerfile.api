@@ -23,7 +23,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends nodejs npm \
     && npm install pptxgenjs
 
 # Source last: editing code only rebuilds from here down (seconds, not minutes).
-COPY criteria.yaml ./
+COPY config/ config/
 COPY pipeline/ pipeline/
 COPY agents/ agents/
 COPY report/ report/

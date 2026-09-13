@@ -1,7 +1,7 @@
 """Orchestrator: discover -> metrics -> classify [-> render].
 
-    python -m pipeline.run --input staged/ --criteria criteria.yaml --out runs/qc1
-    python -m pipeline.run --input staged/ --criteria criteria.yaml --out runs/qc1 --render
+    python -m pipeline.run --input staged/ --criteria config/criteria.yaml --out runs/qc1
+    python -m pipeline.run --input staged/ --criteria config/criteria.yaml --out runs/qc1 --render
 
 Writes runs/<run>/scans.csv (one row per scan) and state.json. Deterministic:
 no LLM involved. Rendering is optional here because it is the slow stage;
@@ -23,7 +23,7 @@ from .state import RunState
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--input", required=True)
-    ap.add_argument("--criteria", default="criteria.yaml")
+    ap.add_argument("--criteria", default="config/criteria.yaml")
     ap.add_argument("--out", required=True)
     ap.add_argument("--task", default="rest")
     ap.add_argument("--render", action="store_true", help="also render figures to JPEG")
