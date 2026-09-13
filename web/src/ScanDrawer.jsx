@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { api, fetchImage } from "./api.js";
+import { api, can, fetchImage } from "./api.js";
 
 const FIGS = [
   ["carpet", "Confounds & carpet plot"],
@@ -9,12 +9,14 @@ const FIGS = [
 
 const fmt = (v, d = 3) => (v == null ? "—" : Number(v).toFixed(d));
 
-export default function ScanDrawer({ runId, scan, onClose, onDecided }) {
+export default function ScanDrawer({ user, runId, scan, onClose, onDecided }) {
   const [urls, setUrls] = useState({});
-  const [by, setBy] = useState(localStorage.getItem("afq_reviewer") || "");
   const [note, setNote] = useState("");
+  const [history, setHistory] = useState([]);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
+  const canDecide = can(user, "reviewer");
+  const scanPath = `/api/runs/${runId}/scans/${encodeURIComponent(scan.key)}`;
 
   useEffect(() => {
     let alive = true;
@@ -35,15 +37,20 @@ export default function ScanDrawer({ runId, scan, onClose, onDecided }) {
     };
   }, [runId, scan]);
 
+  useEffect(() => {
+    api(`${scanPath}/history`).then((d) => setHistory(d.history)).catch(() => setHistory([]));
+  }, [scanPath, scan.decision]);
+
   const decide = async (decision) => {
     setBusy(true);
     setErr("");
-    localStorage.setItem("afq_reviewer", by);
     try {
-      await api(`/api/runs/${runId}/scans/${encodeURIComponent(scan.key)}/decision`, {
+      // the reviewer's identity comes from the login token; nothing to type
+      await api(`${scanPath}/decision`, {
         method: "POST",
-        body: JSON.stringify({ decision, by, note }),
+        body: JSON.stringify({ decision, note }),
       });
+      setNote("");
       onDecided();
     } catch (ex) {
       setErr(ex.message);
@@ -72,6 +79,7 @@ export default function ScanDrawer({ runId, scan, onClose, onDecided }) {
           <span>Outliers</span><b>{fmt(m.outlier_percent, 1)}%</b>
           <span>Retained</span><b>{fmt(m.retained_minutes, 1)} min</b>
           <span>TR / volumes</span><b>{fmt(m.tr, 2)} s · {m.n_volumes ?? "—"}</b>
+          {m.vendor && <><span>Scanner</span><b>{m.vendor}</b></>}
         </div>
 
         {scan.reasons.length > 0 && (
@@ -85,8 +93,13 @@ export default function ScanDrawer({ runId, scan, onClose, onDecided }) {
         {scan.review && (
           <p className="pill">
             Agent figure review — <b>{scan.review.rating}</b>
-            {scan.review.panel ? ` (${scan.review.panel})` : ""}
+            {scan.review.panel && scan.review.panel !== "none" ? ` (${scan.review.panel})` : ""}
             {scan.review.note ? `: ${scan.review.note}` : ""}
+            {scan.review.context?.length > 0 && (
+              <span className="faint">
+                {" "}· grounded in {scan.review.context.map((c) => c.section).join("; ")}
+              </span>
+            )}
           </p>
         )}
         {scan.missing.length > 0 && (
@@ -102,27 +115,40 @@ export default function ScanDrawer({ runId, scan, onClose, onDecided }) {
               {scan.decision.note ? ` — “${scan.decision.note}”` : ""}
             </p>
           )}
-          <div className="row">
-            <input
-              placeholder="your initials"
-              style={{ width: 110 }}
-              value={by}
-              onChange={(e) => setBy(e.target.value)}
-            />
-            <input
-              placeholder="note (optional)"
-              style={{ flex: 1, minWidth: 160 }}
-              value={note}
-              onChange={(e) => setNote(e.target.value)}
-            />
-            <button className="keep" disabled={busy || !by} onClick={() => decide("keep")}>Keep</button>
-            <button className="drop" disabled={busy || !by} onClick={() => decide("drop")}>Drop</button>
-            {scan.decision && (
-              <button disabled={busy} onClick={() => decide("clear")}>Clear</button>
-            )}
-          </div>
-          {!by && <p className="pill" style={{ marginTop: 6 }}>Enter initials to record a decision (audit trail).</p>}
+          {canDecide ? (
+            <div className="row">
+              <input
+                id="decision-note"
+                placeholder="note (optional)"
+                style={{ flex: 1, minWidth: 160 }}
+                value={note}
+                onChange={(e) => setNote(e.target.value)}
+              />
+              <button className="keep" disabled={busy} onClick={() => decide("keep")}>Keep</button>
+              <button className="drop" disabled={busy} onClick={() => decide("drop")}>Drop</button>
+              {scan.decision && (
+                <button disabled={busy} onClick={() => decide("clear")}>Clear</button>
+              )}
+              <span className="pill">recorded as {user.username}</span>
+            </div>
+          ) : (
+            <p className="pill">Recording decisions needs the <b>reviewer</b> role (you are {user.role}).</p>
+          )}
           {err && <p className="err">{err}</p>}
+          {history.length > 0 && (
+            <ul className="history">
+              {history.map((h) => (
+                <li key={h.id}>
+                  <span className={`chip ${h.decision === "keep" ? "INCLUDE" : h.decision === "drop" ? "EXCLUDE" : "outline"}`}>
+                    {h.decision}
+                  </span>{" "}
+                  {h.by} · {h.at}
+                  {h.note ? ` — “${h.note}”` : ""}
+                  <span className="faint"> (status then: {h.status_at_decision})</span>
+                </li>
+              ))}
+            </ul>
+          )}
         </div>
 
         {FIGS.map(([kind, label]) => (

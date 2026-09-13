@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { api, getToken } from "./api.js";
+import { api, can, getToken } from "./api.js";
 import ScanDrawer from "./ScanDrawer.jsx";
 
 const ACTIVE = ["starting", "pipeline", "review", "deck"];
@@ -15,7 +15,7 @@ const COLS = [
 ];
 const fmt = (v, d = 3) => (v == null ? "—" : Number(v).toFixed(d));
 
-export default function RunDetail({ runId, onBack }) {
+export default function RunDetail({ user, runId, onBack }) {
   const [info, setInfo] = useState(null);
   const [scans, setScans] = useState([]);
   const [sort, setSort] = useState({ col: "sub", dir: 1 });
@@ -108,7 +108,9 @@ export default function RunDetail({ runId, onBack }) {
             <button onClick={() => setLog(log == null ? "" : null)}>
               {log == null ? "Show log" : "Hide log"}
             </button>
-            <button onClick={buildDeck} disabled={running}>Build deck</button>
+            {can(user, "admin") && (
+              <button onClick={buildDeck} disabled={running}>Build deck</button>
+            )}
             <button className="primary" onClick={downloadDeck} disabled={!info?.has_deck}>
               Download deck
             </button>
@@ -199,6 +201,7 @@ export default function RunDetail({ runId, onBack }) {
 
       {openScan && (
         <ScanDrawer
+          user={user}
           runId={runId}
           scan={openScan}
           onClose={() => setOpen(null)}

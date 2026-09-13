@@ -1,8 +1,9 @@
 import { useState } from "react";
-import { api, setToken, clearToken } from "./api.js";
+import { login } from "./api.js";
 
 export default function Login({ onDone }) {
-  const [pw, setPw] = useState("");
+  const [username, setUsername] = useState("");
+  const [password, setPassword] = useState("");
   const [err, setErr] = useState("");
   const [busy, setBusy] = useState(false);
 
@@ -10,13 +11,11 @@ export default function Login({ onDone }) {
     e.preventDefault();
     setBusy(true);
     setErr("");
-    setToken(pw);
     try {
-      await api("/api/runs"); // any authed endpoint validates the password
-      onDone();
+      const user = await login(username.trim(), password);
+      onDone(user);
     } catch (ex) {
-      clearToken();
-      setErr(ex.message === "unauthorized" ? "Wrong password" : `Server error: ${ex.message}`);
+      setErr(ex.message === "bad username or password" ? "Wrong username or password" : ex.message);
     } finally {
       setBusy(false);
     }
@@ -26,18 +25,31 @@ export default function Login({ onDone }) {
     <div className="login-wrap">
       <form className="login" onSubmit={submit}>
         <h1>auto-fmri-qa</h1>
-        <p>fMRIPrep quality-control review. Enter the lab password.</p>
+        <p>fMRIPrep quality-control review. Sign in with your lab account.</p>
         <input
-          type="password"
-          placeholder="Lab password"
-          value={pw}
-          onChange={(e) => setPw(e.target.value)}
+          id="login-username"
+          placeholder="Username"
+          autoComplete="username"
+          value={username}
+          onChange={(e) => setUsername(e.target.value)}
           autoFocus
         />
-        <button className="primary" disabled={busy || !pw}>
-          {busy ? "Checking…" : "Enter"}
+        <input
+          id="login-password"
+          type="password"
+          placeholder="Password"
+          autoComplete="current-password"
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
+        />
+        <button className="primary" disabled={busy || !username || !password}>
+          {busy ? "Signing in…" : "Sign in"}
         </button>
         {err && <p className="err" style={{ marginTop: 10 }}>{err}</p>}
+        <p className="pill" style={{ marginTop: 12 }}>
+          No account yet? An admin creates one with{" "}
+          <span className="mono">autoqa users add &lt;name&gt; --role reviewer</span>.
+        </p>
       </form>
     </div>
   );

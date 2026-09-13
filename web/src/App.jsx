@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { clearToken, getToken, setUnauthorizedHandler } from "./api.js";
+import { clearSession, getToken, getUser, setUnauthorizedHandler } from "./api.js";
 import Login from "./Login.jsx";
 import RunsPage from "./RunsPage.jsx";
 import RunDetail from "./RunDetail.jsx";
@@ -11,17 +11,17 @@ const parse = () => {
 };
 
 export default function App() {
-  const [authed, setAuthed] = useState(!!getToken());
+  const [user, setUser] = useState(getToken() ? getUser() : null);
   const [route, setRoute] = useState(parse());
 
   useEffect(() => {
-    setUnauthorizedHandler(() => setAuthed(false));
+    setUnauthorizedHandler(() => setUser(null));
     const onHash = () => setRoute(parse());
     window.addEventListener("hashchange", onHash);
     return () => window.removeEventListener("hashchange", onHash);
   }, []);
 
-  if (!authed) return <Login onDone={() => setAuthed(true)} />;
+  if (!user) return <Login onDone={setUser} />;
 
   return (
     <>
@@ -34,18 +34,25 @@ export default function App() {
         </h1>
         {route.page === "run" && <span className="pill">/ {route.runId}</span>}
         <div className="spacer" />
+        <span className="pill">
+          <b>{user.username}</b> · {user.role}
+        </span>
         <button
           className="ghost"
-          onClick={() => { clearToken(); setAuthed(false); }}
+          onClick={() => { clearSession(); setUser(null); }}
         >
-          log out
+          sign out
         </button>
       </div>
       {route.page === "runs" && (
-        <RunsPage onOpen={(id) => { window.location.hash = `#/run/${id}`; }} />
+        <RunsPage user={user} onOpen={(id) => { window.location.hash = `#/run/${id}`; }} />
       )}
       {route.page === "run" && (
-        <RunDetail runId={route.runId} onBack={() => { window.location.hash = "#/"; }} />
+        <RunDetail
+          user={user}
+          runId={route.runId}
+          onBack={() => { window.location.hash = "#/"; }}
+        />
       )}
     </>
   );

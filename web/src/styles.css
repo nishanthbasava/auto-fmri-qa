@@ -118,3 +118,8 @@ pre.log {
   animation: spin 0.8s linear infinite; vertical-align: -2px;
 }
 @keyframes spin { to { transform: rotate(360deg); } }
+
+/* decision history (per-user auth) */
+.faint { color: var(--faint); }
+ul.history { list-style: none; padding: 0; margin: 10px 0 0; font-size: 12.5px; }
+ul.history li { padding: 4px 0; border-top: 1px solid #eceef1; color: var(--muted); }

@@ -1,13 +1,27 @@
-// Thin fetch wrapper. The shared lab password is kept in sessionStorage and
-// sent as a Bearer token on every request; a 401 clears it and bounces the
-// app back to the login screen.
+// Thin fetch wrapper. After login the JWT and the user's {username, role} are
+// kept in sessionStorage (cleared when the tab closes) and the token is sent
+// as a Bearer header on every request; a 401 clears it and bounces the app
+// back to the login screen.
 
 let onUnauthorized = () => {};
 export const setUnauthorizedHandler = (fn) => { onUnauthorized = fn; };
 
 export const getToken = () => sessionStorage.getItem("afq_token") || "";
-export const setToken = (t) => sessionStorage.setItem("afq_token", t);
-export const clearToken = () => sessionStorage.removeItem("afq_token");
+export const getUser = () => {
+  try { return JSON.parse(sessionStorage.getItem("afq_user") || "null"); } catch { return null; }
+};
+export const setSession = (token, user) => {
+  sessionStorage.setItem("afq_token", token);
+  sessionStorage.setItem("afq_user", JSON.stringify(user));
+};
+export const clearSession = () => {
+  sessionStorage.removeItem("afq_token");
+  sessionStorage.removeItem("afq_user");
+};
+
+// Role hierarchy mirrors the API: viewer < reviewer < admin.
+const ROLES = ["viewer", "reviewer", "admin"];
+export const can = (user, role) => !!user && ROLES.indexOf(user.role) >= ROLES.indexOf(role);
 
 export async function api(path, opts = {}) {
   const res = await fetch(path, {
@@ -19,7 +33,7 @@ export async function api(path, opts = {}) {
     },
   });
   if (res.status === 401) {
-    clearToken();
+    clearSession();
     onUnauthorized();
     throw new Error("unauthorized");
   }
@@ -29,6 +43,22 @@ export async function api(path, opts = {}) {
     throw new Error(detail);
   }
   return res.json();
+}
+
+export async function login(username, password) {
+  const res = await fetch("/api/auth/login", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ username, password }),
+  });
+  if (!res.ok) {
+    let detail = "login failed";
+    try { detail = (await res.json()).detail || detail; } catch { /* ignore */ }
+    throw new Error(detail);
+  }
+  const data = await res.json();
+  setSession(data.token, data.user);
+  return data.user;
 }
 
 // <img> tags cannot send an Authorization header, so figures are fetched as

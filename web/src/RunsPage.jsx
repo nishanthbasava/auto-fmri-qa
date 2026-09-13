@@ -1,9 +1,10 @@
 import { useEffect, useState } from "react";
-import { api } from "./api.js";
+import { api, can } from "./api.js";
 
 const ACTIVE = ["starting", "pipeline", "review", "deck"];
 
-export default function RunsPage({ onOpen }) {
+export default function RunsPage({ user, onOpen }) {
+  const isAdmin = can(user, "admin");
   const [runs, setRuns] = useState(null);
   const [inputs, setInputs] = useState([]);
   const [form, setForm] = useState({ run_id: "", input: "", render: true, review: false });
@@ -48,7 +49,13 @@ export default function RunsPage({ onOpen }) {
 
   return (
     <div className="page">
-      <div className="card">
+      {!isAdmin && (
+        <div className="card">
+          <h2>Launch a QC run</h2>
+          <p className="pill">Launching runs needs the <b>admin</b> role (you are {user.role}).</p>
+        </div>
+      )}
+      {isAdmin && <div className="card">
         <h2>Launch a QC run</h2>
         <form className="row" onSubmit={launch}>
           <input
@@ -90,7 +97,7 @@ export default function RunsPage({ onOpen }) {
           </p>
         )}
         {err && <p className="err">{err}</p>}
-      </div>
+      </div>}
 
       <div className="card">
         <h2>Runs</h2>
