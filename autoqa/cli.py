@@ -9,6 +9,7 @@
     autoqa stage    /derivatives -o staged/                     copy the light subset (on the cluster)
     autoqa serve    [--host 0.0.0.0 --port 8000]                the FastAPI backend
     autoqa criteria [path]                                      validate + print a criteria file
+    autoqa demo     --out staged/demo [--subjects 24]           synthetic cohort (no real data)
 
 Every subcommand is a thin wrapper over a module `main(argv)`, so the same code
 is importable as a library (see `autoqa.qc`).
@@ -73,6 +74,11 @@ def _serve(argv):
     return 0
 
 
+def _demo(argv):
+    from .synth import main
+    return main(argv)
+
+
 def _criteria(argv):
     ap = argparse.ArgumentParser(prog="autoqa criteria",
                                  description="Validate a criteria file and print it.")
@@ -94,7 +100,7 @@ def _criteria(argv):
 COMMANDS = {
     "run": _run, "render": _render, "review": _review, "report": _report,
     "lists": _lists, "rag": _rag, "stage": _stage, "serve": _serve,
-    "criteria": _criteria,
+    "criteria": _criteria, "demo": _demo,
 }
 
 
