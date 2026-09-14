@@ -1,0 +1,33 @@
+# LoRA SFT of Qwen2.5-VL on the AutoQA figure-review dataset.
+# python -m qcvlm.train_lora --config configs/lora.yaml
+model_id: Qwen/Qwen2.5-VL-7B-Instruct
+data_dir: data/processed
+output_dir: adapters/lora-r16
+max_pixels: 589824            # 768*768; the "resolution" ablation axis
+
+lora:
+  r: 16                       # rank of the update: W' = W + (alpha/r) * B A, B: d x r, A: r x k
+  alpha: 32                   # scaling; alpha/r = 2 keeps the update's magnitude sane as r changes
+  dropout: 0.05
+  # language-model projections only; the vision tower stays frozen (a few hundred
+  # labeled scans cannot re-teach vision, but they can teach what to say about it)
+  target_modules: [q_proj, k_proj, v_proj, o_proj, gate_proj, up_proj, down_proj]
+  exclude_modules_regex: "^visual\\."
+
+train:
+  epochs: 3
+  lr: 1.0e-4                  # LoRA tolerates ~10x the lr of full fine-tuning
+  scheduler: cosine
+  warmup_ratio: 0.05
+  per_device_batch: 1         # images are big; accumulate instead
+  grad_accum: 16              # effective batch 16
+  bf16: true
+  gradient_checkpointing: true
+  weight_decay: 0.0
+  max_grad_norm: 1.0
+  logging_steps: 5
+  seed: 7
+  eval_examples: 64           # validation scans generated at each epoch end for macro-F1
+  load_in_4bit: false         # QLoRA: NF4 base weights; fits a 24 GB card at ~2x slower
+
+report_to: none               # or "wandb"

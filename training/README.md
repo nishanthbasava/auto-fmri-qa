@@ -60,10 +60,33 @@ and s/example from the predictor's own accounting. Every run appends a row to
 predictions. Predictions are cached under `results/cache/` keyed by
 predictor + image hashes, so re-runs are free.
 
-## 4. Fine-tune (GPU) and ablate
+## 4. Fine-tune (GPU)
 
-Coming with the LoRA work: `qcvlm.predictors.qwen`, `qcvlm.train_lora`,
-`qcvlm.ablate`. Status is tracked in the root README.
+    pip install -r requirements.txt                                # torch, transformers, peft, ...
+    python -m qcvlm.train_lora --config configs/lora.yaml --dry-run   # no GPU: checks data + prompt
+    python -m qcvlm.train_lora --config configs/lora.yaml --limit 20  # smoke run on any GPU
+    python -m qcvlm.train_lora --config configs/lora.yaml             # full run (~1-2 h on an A100)
+
+`configs/lora.yaml` documents every choice (r=16, α=32, LM projections only,
+vision tower frozen, lr 1e-4 cosine, effective batch 16, bf16 + gradient
+checkpointing; `load_in_4bit: true` for QLoRA on a 24 GB card). The loss is
+masked to the assistant turn. Validation macro-F1 is computed with the same
+harness at each epoch end and the best adapter is kept under `<output_dir>/best`.
+
+Launchers: `modal run qcvlm/modal_train.py --config configs/lora.yaml` (rented
+A100; see the DUA note in that file) or `sbatch slurm/train_lora.sbatch` on ACCRE.
+
+Evaluate the result exactly like the baseline:
+
+    python -m qcvlm.evaluate --predictor qwen --split test                         # zero-shot
+    python -m qcvlm.evaluate --predictor qwen-lora --adapter adapters/lora-r16/best --split test
+    # or through vLLM (5-10x faster): vllm serve Qwen/Qwen2.5-VL-7B-Instruct --enable-lora \
+    #     --lora-modules qc=adapters/lora-r16/best   then  QwenPredictor(endpoint=..., model_id="qc")
+
+**Status:** the Qwen predictor and trainer are written against transformers
+4.45+ / PEFT 0.12 and covered by dry-run and endpoint-backend tests, but have
+not yet been executed on a GPU. Ablations (`qcvlm.ablate`: resolution × RAG
+context × label granularity) follow the first real run.
 
 ## Planned adversarial cases
 

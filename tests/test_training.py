@@ -259,3 +259,76 @@ def test_claude_predictor_uses_tool_contract_and_costs(rendered_run, tmp_path):
     assert res["usage"]["usd_per_1k"] > 0 and res["predictor"] == "claude:claude-sonnet-4-5"
     assert all(p_["pred"] == "bad" for p_ in res["predictions"])
     assert set(FAILURE_TYPES) >= {p_["failure_pred"] for p_ in res["predictions"]}
+
+
+# ----------------------------------------------------------------- qwen / lora (no GPU)
+
+def test_qwen_message_formatting_and_parsing(rendered_run, tmp_path):
+    from qcvlm import formatting
+    gold_path = tmp_path / "gold.jsonl"
+    _gold_from_run(rendered_run, gold_path)
+    data = tmp_path / "d"
+    dataset.build(str(gold_path), str(rendered_run), str(data), seed=5)
+    ex = dataset.load_split(str(data), "train")[0]
+    msgs = formatting.to_qwen_messages(ex, include_assistant=True, max_pixels=1234)
+    assert [m["role"] for m in msgs] == ["system", "user", "assistant"]
+    imgs = [b for b in msgs[1]["content"] if b["type"] == "image"]
+    assert len(imgs) == 3 and imgs[0]["max_pixels"] == 1234 and imgs[0]["image"].endswith(".jpg")
+    assert msgs[1]["content"][-1]["text"].startswith("Reply with ONLY a JSON object")
+    assert json.loads(msgs[2]["content"])["rating"] == ex["label"]["rating"]
+
+    assert formatting.parse_prediction('{"rating": "bad", "panel": "coreg", "failure_type": "truncated_fov", "note": "slab"}')["rating"] == "bad"
+    assert formatting.parse_prediction('Sure! ```json\n{"rating": "Clean", "panel": "none", "failure_type": "none", "note": ""}\n```')["rating"] == "clean"
+    assert formatting.parse_prediction('The scan looks fine. {"rating":"minor","panel":"carpet","failure_type":"motion","note":"x"} done')["panel"] == "carpet"
+    with pytest.raises(ValueError):
+        formatting.parse_prediction("no json here")
+    with pytest.raises(Exception):  # noqa: B017 - pydantic wraps the enum error
+        formatting.parse_prediction('{"rating": "meh", "panel": "none", "failure_type": "none"}')
+
+
+def test_qwen_endpoint_backend_speaks_openai_and_caches(rendered_run, tmp_path):
+    from qcvlm.predictors.qwen import QwenPredictor
+    gold_path = tmp_path / "gold.jsonl"
+    _gold_from_run(rendered_run, gold_path)
+    data = tmp_path / "d"
+    dataset.build(str(gold_path), str(rendered_run), str(data), seed=5)
+    exs = dataset.load_split(str(data), "test")[:2]
+    calls = []
+
+    def fake_post(url, json=None, timeout=None):
+        calls.append((url, json))
+        return SimpleNamespace(raise_for_status=lambda: None,
+                               json=lambda: {"choices": [{"message": {"content":
+                                   '{"rating": "concern", "panel": "carpet", "failure_type": "carpet_block", "note": "band at 3 min"}'}}]})
+
+    p = QwenPredictor(endpoint="http://gpu:8000/v1", model_id="qc", adapter="adapters/lora-r16",
+                      _http=fake_post, cache_dir=str(tmp_path / "c"))
+    assert p.ident() == "qwen:qc+lora:lora-r16@589824px"
+    preds = [p.predict(e) for e in exs]
+    assert all(q["rating"] == "concern" for q in preds) and len(calls) == 2
+    url, body = calls[0]
+    assert url == "http://gpu:8000/v1/chat/completions" and body["model"] == "qc"
+    user = body["messages"][1]["content"]
+    assert sum(1 for b in user if b["type"] == "image_url") == 3
+    assert user[-1]["type"] == "text" and user[-1]["text"].startswith("Reply with ONLY")
+    assert [p.predict(e) for e in exs] == preds and len(calls) == 2      # cache hit
+    assert p.usage()["cache_hits"] == 2
+
+
+def test_train_lora_dry_run_and_config(rendered_run, tmp_path, capsys):
+    from qcvlm import train_lora
+    gold_path = tmp_path / "gold.jsonl"
+    _gold_from_run(rendered_run, gold_path)
+    data = tmp_path / "d"
+    dataset.build(str(gold_path), str(rendered_run), str(data), seed=5)
+    cfg = train_lora.load_config("training/configs/lora.yaml")
+    assert cfg["lora"]["r"] == 16 and cfg["lora"]["alpha"] == 32 and "visual" in cfg["lora"]["exclude_modules_regex"]
+    rc = train_lora.main(["--config", "training/configs/lora.yaml", "--dry-run", "--limit", "4",
+                          "--set", f"data_dir={data}", "--set", "lora.r=8"])
+    out = capsys.readouterr().out
+    assert rc == 0 and "train 4 examples" in out and "LoRA r=8" in out and "dry run OK" in out
+    assert "[assistant]" in out and "<image" in out
+    with pytest.raises(ValueError, match="missing"):
+        bad = tmp_path / "bad.yaml"
+        bad.write_text("model_id: x\n")
+        train_lora.load_config(str(bad))
