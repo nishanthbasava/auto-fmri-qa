@@ -21,7 +21,7 @@ jobs:
       - uses: actions/setup-python@v5
         with: { python-version: "3.11" }
       - run: pip install ruff
-      - run: ruff check autoqa tests
+      - run: ruff check autoqa tests training
 
   test:
     runs-on: ubuntu-latest
@@ -36,7 +36,7 @@ jobs:
           python-version: ${{ matrix.python-version }}
           cache: pip
           cache-dependency-path: pyproject.toml
-      - run: pip install -e .[web,dev]
+      - run: pip install -e .[web,dev] && pip install -e training[dev]
       # Coverage gate: the deterministic pipeline + API are what the unit suite
       # covers today; render/agents/report are measured by the `render` job and
       # by the mocked-client tests added with the review work.

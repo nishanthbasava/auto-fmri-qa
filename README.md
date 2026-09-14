@@ -50,12 +50,21 @@ work whose outputs already exist.
 
     crit = autoqa.load_criteria("my_criteria.yaml")   # validated: a typo fails here, not mid-run
 
+## Fine-tuned reviewer (training/)
+
+`training/qcvlm` holds the ML side: labeling sheets with Cohen's/Fleiss' κ,
+a subject-split dataset builder with a manifest and data card, an evaluation
+harness (macro-F1 with bootstrap CIs over subjects, per-class P/R/F1, cost and
+latency per predictor), and a Claude API baseline that reuses the production
+review agent. The Qwen2.5-VL LoRA fine-tune and ablations land next; see
+[training/README.md](training/README.md).
+
 ## Development
 
     pip install -e .[all,dev]
     pytest                       # unit suite (synthetic data only; < 1 s)
     pytest --cov=autoqa          # coverage; CI gates on it
-    ruff check autoqa tests      # lint (CI runs this first)
+    ruff check autoqa tests training   # lint (CI runs this first)
 
 CI runs lint, the test matrix (3.10–3.12) with a coverage gate, the renderer
 under chromium, the frontend build, and both Docker images on every push.

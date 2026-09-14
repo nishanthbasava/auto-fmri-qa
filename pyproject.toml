@@ -48,6 +48,7 @@ autoqa = ["data/*.yaml", "data/knowledge/*.md", "agents/prompts/*.md", "report/*
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+pythonpath = ["training"]   # `import qcvlm` without installing training/
 addopts = "-q"
 markers = ["render: needs playwright + chromium", "node: needs node + pptxgenjs"]
 

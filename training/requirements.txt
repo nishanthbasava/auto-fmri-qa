@@ -1,0 +1,11 @@
+# GPU box (Modal / Lambda / RunPod): pinned stack for Qwen2.5-VL inference + LoRA SFT.
+# CPU-only work (labels, dataset, metrics, Claude baseline) needs none of this:
+#     pip install -e . && pip install -e training[api]
+torch>=2.3
+transformers>=4.45
+accelerate>=0.33
+peft>=0.12
+trl>=0.11
+qwen-vl-utils>=0.0.8
+bitsandbytes>=0.43
+vllm>=0.6

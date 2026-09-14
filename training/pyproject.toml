@@ -1,0 +1,20 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "qcvlm"
+version = "0.1.0"
+description = "Dataset, evaluation and LoRA fine-tuning for the AutoQA figure reviewer"
+requires-python = ">=3.10"
+dependencies = ["pydantic>=2.0", "auto-fmri-qa"]
+
+[project.optional-dependencies]
+api = ["anthropic>=0.40"]
+# GPU stack for the Qwen predictors and the LoRA trainer (see requirements.txt)
+gpu = ["torch>=2.3", "transformers>=4.45", "accelerate>=0.33", "peft>=0.12", "trl>=0.11",
+       "qwen-vl-utils>=0.0.8", "bitsandbytes>=0.43"]
+dev = ["pytest>=8", "scikit-learn>=1.4"]
+
+[tool.setuptools.packages.find]
+include = ["qcvlm*"]
