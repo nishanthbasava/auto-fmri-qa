@@ -47,13 +47,14 @@ What is live, and what the repo does not yet claim.
 | area | state | evidence |
 |---|---|---|
 | Deterministic pipeline, criteria contract, CLI + Python SDK | **live** | `autoqa run`, `autoqa.qc()`, 100% coverage on `pipeline/metrics.py` and `classify.py` |
-| Synthetic cohort, 76 tests, CI (lint · 3.10–3.12 matrix · coverage gate · chromium · web · docker) | **live** | `pytest`, badge above |
+| Synthetic cohort, 81 tests, CI (lint · 3.10–3.12 matrix · 70% coverage gate · chromium · web · docker) | **live** | `pytest`, badge above |
 | Session-pooling audit, review-surface metric | **live, run on the ADNI pass** | 18/458 flips; 66–82% fewer scans opened (see below) |
 | LLM figure review: retrieval-grounded prompt, forced tool call validated by pydantic, retries, cost accounting | **live** | `autoqa review`, `tests/test_agents.py` (mocked client) |
 | Review app: per-user auth (argon2 + JWT), viewer/reviewer/admin, append-only decisions + audit log in Postgres, request metrics | **live on the lab stack** | `docker compose up`, `tests/test_api.py` |
 | Labeling sheets + κ, subject-split dataset with manifest, eval harness with bootstrap CIs, Claude baseline | **live** | `python -m qcvlm.labels / dataset / evaluate` |
 | Expert-labeled dataset | **in progress** | labeling with the lab; κ reported when the sheets are in |
 | Qwen2.5-VL zero-shot + LoRA fine-tune, ablations (resolution × RAG × label granularity) | **code written, not yet run on a GPU** | `training/qcvlm/train_lora.py --dry-run` passes; first run pending |
+| Multiband FD threshold analysis (single-band vs multiband) | **run on the ADNI pass** | naive TR-scaling is a 4.9× correction; exceedance-matched is 1.2× (see below) |
 | Vendor DVARS bias report | **pending cluster run** | needs `Manufacturer` sidecars on ACCRE |
 | Public demo deployment (GCP Cloud Run + Cloud SQL, synthetic data only) | **planned** | the ADNI instance stays on the lab network (DUA) |
 
@@ -71,6 +72,16 @@ that a reviewer opens **66–82% fewer scans** on that pass (the range spans the
 two criteria versions and whether confirmed EXCLUDEs still count), and prints
 the misses and false alarms next to it once human decisions exist — the
 reduction is never quoted alone.
+
+The single-band/multiband split (426 vs 32 scans) also puts a number on the
+criteria's `tr_scaled` outlier mode. Naively scaling the 0.5 mm FD spike
+threshold by the TR ratio implies 0.101 mm for the multiband protocol — a 4.9×
+correction. Matching the single-band exceedance rate (7.5% of frames) instead
+puts the empirical multiband threshold at 0.415 mm, a **1.2× correction**
+(per-percentile FD ratios run 1.11–1.62×). Caveat: multiband FD includes
+respiratory pseudomotion, so an exceedance-matched threshold equalises flag
+*rates*, not physiology — notch-filtered motion parameters remain the
+principled fix. Analysis in `scripts/qc_protocol_plots.py`.
 
 ## Install
 
@@ -167,8 +178,9 @@ for the labeling protocol and the current status.
 ## Development
 
     pip install -e .[all,dev] && pip install -e training[api,dev]
-    pytest                             # 76 tests, synthetic data only, ~3 s
-    pytest --cov=autoqa                # CI gates on coverage
+    pytest -m "not render and not node"   # 77 tests, synthetic data only, ~3 s
+    pytest -m render                       # 4 renderer tests under chromium, ~10 s
+    pytest --cov=autoqa                    # CI gates at 70%
     ruff check autoqa tests training   # CI runs this first
 
 CI: lint · pytest on 3.10/3.11/3.12 with a coverage gate · renderer under
