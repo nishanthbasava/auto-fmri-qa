@@ -78,6 +78,20 @@ def test_export_import_agreement_and_merge(rendered_run, tmp_path):
     assert len(labels.read_gold(str(tmp_path / "gold.jsonl"))) == n
 
 
+def test_export_sample_clean_is_seeded(rendered_run, tmp_path):
+    all_n = labels.export_sheet(str(rendered_run), str(tmp_path / "all.csv"))
+    flagged_n = labels.export_sheet(str(rendered_run), str(tmp_path / "f.csv"), only="flagged")
+    n1 = labels.export_sheet(str(rendered_run), str(tmp_path / "s1.csv"),
+                             only="flagged", sample_clean=3, seed=1)
+    n2 = labels.export_sheet(str(rendered_run), str(tmp_path / "s2.csv"),
+                             only="flagged", sample_clean=3, seed=1)
+    assert n1 == n2 == flagged_n + 3 <= all_n
+    assert open(tmp_path / "s1.csv").read() == open(tmp_path / "s2.csv").read()
+    # asking for more clean scans than exist caps at the pool: the full cohort
+    assert labels.export_sheet(str(rendered_run), str(tmp_path / "s3.csv"),
+                               only="flagged", sample_clean=10**6) == all_n
+
+
 def test_sheet_validation_names_the_row(tmp_path):
     p = tmp_path / "sheet_X.csv"
     with open(p, "w", newline="") as f:

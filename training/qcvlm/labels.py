@@ -1,6 +1,7 @@
 """Labeling sheets, inter-rater agreement, and gold-label merging.
 
-    python -m qcvlm.labels export RUN_DIR -o data/labels/sheet_<rater>.csv [--only flagged]
+    python -m qcvlm.labels export RUN_DIR -o data/labels/sheet_<rater>.csv
+                                 [--only flagged] [--sample-clean N] [--seed S]
     python -m qcvlm.labels agreement sheet_A.csv sheet_B.csv [...]
     python -m qcvlm.labels merge sheet_A.csv sheet_B.csv [--adjudicated adj.csv] -o data/labels/gold.jsonl
 
@@ -17,6 +18,7 @@ import argparse
 import csv
 import json
 import os
+import random
 import sys
 from collections import Counter
 from itertools import combinations
@@ -31,14 +33,23 @@ SHEET_COLUMNS = ["key", "sub", "ses", "status", "mean_fd", "outlier_percent", "t
 
 # ------------------------------------------------------------------ export
 
-def export_sheet(run_dir: str, out_csv: str, only: str = "all") -> int:
+def export_sheet(run_dir: str, out_csv: str, only: str = "all",
+                 sample_clean: int = 0, seed: int = 7) -> int:
+    """One row per scan to label. With only="flagged", sample_clean adds a seeded
+    random draw of clean INCLUDEs so the labeled pool is not all pathology."""
     with open(os.path.join(run_dir, "state.json")) as f:
         state = json.load(f)
+    keys = sorted(state["scans"])
+    if only == "flagged":
+        clean = [k for k in keys if state["scans"][k]["status"] == "INCLUDE"
+                 and not state["scans"][k].get("verify_flags")]
+        keep = set(keys) - set(clean)
+        if sample_clean:
+            keep |= set(random.Random(seed).sample(clean, min(sample_clean, len(clean))))
+        keys = [k for k in keys if k in keep]
     rows = []
-    for key in sorted(state["scans"]):
+    for key in keys:
         s = state["scans"][key]
-        if only == "flagged" and s["status"] == "INCLUDE" and not s.get("verify_flags"):
-            continue
         m = s.get("metrics", {})
         r = s.get("rendered", {})
         rows.append({"key": key, "sub": s["sub"], "ses": s["ses"], "status": s["status"],
@@ -180,6 +191,9 @@ def main(argv=None) -> int:
     e.add_argument("run_dir")
     e.add_argument("-o", "--out", required=True)
     e.add_argument("--only", choices=["all", "flagged"], default="all")
+    e.add_argument("--sample-clean", type=int, default=0, metavar="N",
+                   help="with --only flagged: also include N seeded-random clean INCLUDEs")
+    e.add_argument("--seed", type=int, default=7)
     a = sp.add_parser("agreement")
     a.add_argument("sheets", nargs="+")
     m = sp.add_parser("merge")
@@ -189,7 +203,7 @@ def main(argv=None) -> int:
     args = ap.parse_args(argv)
 
     if args.cmd == "export":
-        n = export_sheet(args.run_dir, args.out, args.only)
+        n = export_sheet(args.run_dir, args.out, args.only, args.sample_clean, args.seed)
         print(f"wrote {n} rows -> {args.out}; fill rating/panel/failure_type/note and re-import")
         return 0
     sheets = {}
