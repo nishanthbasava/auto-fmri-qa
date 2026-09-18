@@ -98,7 +98,7 @@ export default function RunDetail({ user, runId, onBack }) {
             <button className="ghost" onClick={onBack}>← runs</button>
             <h2 style={{ margin: 0 }}>{runId}</h2>
             {info && (
-              <span className={info.job.phase === "failed" ? "err" : "pill"}>
+              <span className={["failed", "interrupted"].includes(info.job.phase) ? "err" : "pill"}>
                 {running && <span className="spin" style={{ marginRight: 6 }} />}
                 {info.job.phase}
               </span>

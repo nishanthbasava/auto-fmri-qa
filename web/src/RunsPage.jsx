@@ -125,7 +125,7 @@ export default function RunsPage({ user, onOpen }) {
                   <td className="pill">{r.created}</td>
                   <td>
                     {ACTIVE.includes(r.job.phase) && <span className="spin" style={{ marginRight: 6 }} />}
-                    <span className={r.job.phase === "failed" ? "err" : "pill"}>{r.job.phase}</span>
+                    <span className={["failed", "interrupted"].includes(r.job.phase) ? "err" : "pill"}>{r.job.phase}</span>
                   </td>
                   <td className="num">{r.n_scans}</td>
                   <td className="num" style={{ color: "var(--include)" }}>{r.counts.INCLUDE || 0}</td>
