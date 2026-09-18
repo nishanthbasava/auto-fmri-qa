@@ -61,6 +61,26 @@ class Decision(Base):
                 "at": self.created_at.isoformat(timespec="seconds")}
 
 
+class Job(Base):
+    """One row per background job, updated in place (not append-only: phase and
+    returncode change as the job runs). A row left running by a process that no
+    longer exists (API restart) is detected via host_pid and marked interrupted
+    on the next read, so job status survives restarts instead of vanishing with
+    the in-process dict."""
+    __tablename__ = "jobs"
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    run_id: Mapped[str] = mapped_column(String(128), index=True)
+    phase: Mapped[str] = mapped_column(String(32), default="starting")
+    returncode: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    host_pid: Mapped[int] = mapped_column(Integer)
+    started_at: Mapped[dt.datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    finished_at: Mapped[dt.datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+    def as_dict(self) -> dict:
+        return {"phase": self.phase, "returncode": self.returncode,
+                "started_at": self.started_at.isoformat(timespec="seconds")}
+
+
 class AuditEvent(Base):
     """Who did what, to what, when, from where. Append-only."""
     __tablename__ = "audit_events"

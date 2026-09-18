@@ -5,6 +5,9 @@ reloads the module, and enters the TestClient context (which runs the lifespan
 hook -> migrations)."""
 import importlib
 import json
+import os
+import sys
+import time
 
 import pytest
 
@@ -192,6 +195,44 @@ def test_path_traversal_rejected(app_env):
         assert c.get("/api/runs/..%2F..%2Fetc/scans", headers=lab).status_code in (400, 404)
         assert c.get("/api/runs/qc1/figures/..%2Fstate.json", headers=lab).status_code in (400, 404)
         assert c.post("/api/runs", json={"run_id": "../x", "input": "."}, headers=lab).status_code == 400
+
+
+def test_job_status_survives_restart_and_guards_concurrency(app_env):
+    m, tmp = app_env
+    with TestClient(m.app):
+        from autoqa.api import jobs
+        from autoqa.db import models
+        from autoqa.db.session import session
+
+        assert jobs.status("qc1") == {"phase": "idle", "returncode": None}
+        run_dir = str(tmp / "runs" / "qc1")
+        jobs.launch_cmd("qc1", run_dir, "deck", [sys.executable, "-c", "print('ok')"])
+        for _ in range(200):
+            if jobs.status("qc1")["returncode"] is not None:
+                break
+            time.sleep(0.05)
+        assert jobs.status("qc1") == {"phase": "done", "returncode": 0}
+        assert "ok" in open(os.path.join(run_dir, "job.log")).read()
+
+        # a row left running by a dead process (API restart) is reaped as interrupted
+        with session() as s:
+            s.add(models.Job(run_id="qc2", phase="pipeline", host_pid=os.getpid() + 12345))
+        assert jobs.status("qc2") == {"phase": "interrupted", "returncode": -1}
+        assert jobs.status("qc2")["phase"] == "interrupted"   # recorded, not recomputed
+
+        # a running row owned by THIS process blocks a second launch
+        with session() as s:
+            s.add(models.Job(run_id="qc3", phase="pipeline", host_pid=os.getpid()))
+        with pytest.raises(RuntimeError, match="already in progress"):
+            jobs.launch_cmd("qc3", run_dir, "deck", [sys.executable, "-c", "pass"])
+
+        # a failing stage records its returncode
+        jobs.launch_cmd("qc4", run_dir, "deck", [sys.executable, "-c", "raise SystemExit(3)"])
+        for _ in range(200):
+            if jobs.status("qc4")["returncode"] is not None:
+                break
+            time.sleep(0.05)
+        assert jobs.status("qc4") == {"phase": "failed", "returncode": 3}
 
 
 def test_password_hashing():
