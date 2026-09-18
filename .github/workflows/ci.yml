@@ -40,7 +40,7 @@ jobs:
       # Coverage gate: the deterministic pipeline + API are what the unit suite
       # covers today; render/agents/report are measured by the `render` job and
       # by the mocked-client tests added with the review work.
-      - run: pytest -m "not render and not node" --cov=autoqa --cov-report=xml --cov-report=term --cov-fail-under=65
+      - run: pytest -m "not render and not node" --cov=autoqa --cov-report=xml --cov-report=term --cov-fail-under=70
         env:
           APP_PASSWORD: ci-only
       - uses: codecov/codecov-action@v4
