@@ -49,7 +49,7 @@ What is live, and what the repo does not yet claim.
 | Deterministic pipeline, criteria contract, CLI + Python SDK | **live** | `autoqa run`, `autoqa.qc()`, 100% coverage on `pipeline/metrics.py` and `classify.py` |
 | Synthetic cohort, 81 tests, CI (lint · 3.10–3.12 matrix · 70% coverage gate · chromium · web · docker) | **live** | `pytest`, badge above |
 | Session-pooling audit, review-surface metric | **live, run on the ADNI pass** | 18/458 flips; 66–82% fewer scans opened (see below) |
-| LLM figure review: retrieval-grounded prompt, forced tool call validated by pydantic, retries, cost accounting | **live** | `autoqa review`, `tests/test_agents.py` (mocked client) |
+| LLM figure review: retrieval-grounded prompt, forced tool call validated by pydantic, retries, cost accounting | **live, run on the ADNI pass** | all 458 scans / 1,374 figures, $7.40, 0 failed batches ([docs/results.md](docs/results.md)) |
 | Review app: per-user auth (argon2 + JWT), viewer/reviewer/admin, append-only decisions + audit log in Postgres, request metrics | **live on the lab stack** | `docker compose up`, `tests/test_api.py` |
 | Labeling sheets + κ, subject-split dataset with manifest, eval harness with bootstrap CIs, Claude baseline | **live** | `python -m qcvlm.labels / dataset / evaluate` |
 | Expert-labeled dataset | **in progress** | labeling with the lab; κ reported when the sheets are in |
@@ -68,10 +68,14 @@ thresholding (`pd.concat` in `lab_qc_scripts/.../step2_confounds_metrics.py`),
 so one label covered sessions that could differ. Recomputing the 458-scan pass
 both ways under the same criteria flips **18 labels** (5 where pooling hides a
 problem, 13 where it penalises a clean scan). The review-surface audit reports
-that a reviewer opens **66–82% fewer scans** on that pass (the range spans the
-two criteria versions and whether confirmed EXCLUDEs still count), and prints
-the misses and false alarms next to it once human decisions exist — the
-reduction is never quoted alone.
+that a reviewer opens **66–82% fewer scans** on metrics alone (the range spans
+the two criteria versions and whether confirmed EXCLUDEs still count). After
+the LLM figure review of all 458 scans, the reduction is **58–62%**: the model
+adds 38 clean-metrics scans to the surface, deliberately spending some
+reduction to cover metrics-blind failures — among them a truncated-FOV scan
+with clean motion numbers that would otherwise have entered the analysis.
+Misses and false alarms print next to the reduction once human decisions
+exist — it is never quoted alone. Full numbers: [docs/results.md](docs/results.md).
 
 The single-band/multiband split (426 vs 32 scans) also puts a number on the
 criteria's `tr_scaled` outlier mode. Naively scaling the 0.5 mm FD spike
