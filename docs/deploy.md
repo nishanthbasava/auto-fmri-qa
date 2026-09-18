@@ -70,7 +70,10 @@ entirely.
 # 0) one-time: install Docker Desktop (mac) or docker engine + compose (linux)
 
 # 1) secrets -- copy .env.example to .env (gitignored AND dockerignored) and fill in
-#      JWT_SECRET, POSTGRES_PASSWORD, ANTHROPIC_API_KEY
+#      JWT_SECRET=$(openssl rand -hex 32)         # else tokens die on every API restart
+#      POSTGRES_PASSWORD=$(openssl rand -hex 16)  # else the dev default is used
+#      ANTHROPIC_API_KEY=...                      # only needed to run LLM reviews
+#      APP_PASSWORD=...                           # optional bootstrap admin (cannot record decisions)
 
 # 2) data -- put a staged fMRIPrep subset in staged/ (from the cluster):
 #      autoqa stage /path/to/derivatives -o staged/batch1 --task rest
@@ -107,6 +110,9 @@ layers rebuild.
   append-only tables from the app role.
 - `autoqa db sync-journal runs/<run>` copies the latest decisions into the
   journal for the deck builder and `autoqa audit surface`.
+- Background jobs (pipeline, review, deck) are rows in a `jobs` table, so
+  status survives an API restart; a job orphaned by a restart is reported as
+  `interrupted` rather than lost.
 - `GET /api/metrics` (Prometheus text) and `/api/metrics.json` report p50/p95/p99
   latency per route from a per-route reservoir of real samples.
 
