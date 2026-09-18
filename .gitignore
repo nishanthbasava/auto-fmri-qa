@@ -21,3 +21,6 @@ dist/
 training/results/cache/
 training/results/*.json
 training/data/processed/
+# labeling sheets carry ADNI scan identifiers (DUA): never commit them
+training/data/labels/*
+!training/data/labels/.gitkeep
