@@ -73,15 +73,22 @@ def test_surface_counts_and_misses(cohort, tmp_path):
     # simulate a reviewer dropping a clean INCLUDE and keeping a CAUTION
     state_path = tmp_path / "run" / "state.json"
     state = json.load(open(state_path))
-    clean = next(k for k, s in state["scans"].items() if s["status"] == "INCLUDE" and not s["verify_flags"])
+    clean, clean2 = [k for k, s in state["scans"].items()
+                     if s["status"] == "INCLUDE" and not s["verify_flags"]][:2]
     caut = next(k for k, s in state["scans"].items() if s["status"] == "CAUTION")
-    state["scans"][clean]["decision"] = {"decision": "drop", "by": "NB"}
-    state["scans"][caut]["decision"] = {"decision": "keep", "by": "NB"}
+    # what review_figures.py writes for a bad rating: the review AND a verify flag;
+    # the reviewer then drops it -- surfaced by the LLM, so a catch, not a miss
     state["scans"][clean]["review"] = {"rating": "bad", "panel": "coreg", "note": "truncated FOV"}
+    state["scans"][clean]["verify_flags"].append("visual review (bad): truncated FOV")
+    state["scans"][clean]["decision"] = {"decision": "drop", "by": "NB"}
+    state["scans"][clean2]["decision"] = {"decision": "drop", "by": "NB"}   # a true miss
+    state["scans"][caut]["decision"] = {"decision": "keep", "by": "NB"}     # a false alarm
     json.dump(state, open(state_path, "w"))
     r2 = surface.surface(str(tmp_path / "run"))
-    assert r2["n_decided"] == 2 and r2["misses"] == 1 and r2["false_alarms"] == 1
+    assert r2["n_decided"] == 3 and r2["misses"] == 1 and r2["false_alarms"] == 1
+    # the LLM catch is attributed to the llm bucket, not lumped into INCLUDE+VERIFY
     assert r2["llm_flagged"] == 1 and r2["surface_strict"] == r["surface_strict"] + 1
+    assert r2["verify_only"] == r["verify_only"]
     assert (tmp_path / "run" / "analysis" / "review_surface.json").exists()
     assert n == len(res.scans)
 

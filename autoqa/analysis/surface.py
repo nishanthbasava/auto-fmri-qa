@@ -25,14 +25,20 @@ import os
 from ..pipeline.state import RunState
 
 
+def _metric_verify_flags(s: dict) -> list:
+    """Criteria-band VERIFY flags only; 'visual review' flags are the LLM's and are
+    attributed to the llm bucket (review_figures appends one per concern/bad rating)."""
+    return [f for f in s.get("verify_flags", []) if not f.startswith("visual review")]
+
+
 def surface(run_dir: str) -> dict:
     state = RunState(run_dir)
     scans = list(state.scans().values())
     n = len(scans)
     excl = [s for s in scans if s["status"] == "EXCLUDE"]
     caut = [s for s in scans if s["status"] == "CAUTION"]
-    verify = [s for s in scans if s["status"] == "INCLUDE" and s.get("verify_flags")]
-    llm = [s for s in scans if s["status"] == "INCLUDE" and not s.get("verify_flags")
+    verify = [s for s in scans if s["status"] == "INCLUDE" and _metric_verify_flags(s)]
+    llm = [s for s in scans if s["status"] == "INCLUDE" and not _metric_verify_flags(s)
            and (s.get("review") or {}).get("rating") in ("concern", "bad")]
     strict = len(excl) + len(caut) + len(verify) + len(llm)
     triage = len(caut) + len(verify) + len(llm)
