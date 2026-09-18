@@ -24,3 +24,6 @@ training/data/processed/
 # labeling sheets carry ADNI scan identifiers (DUA): never commit them
 training/data/labels/*
 !training/data/labels/.gitkeep
+# runtime data mounts (docker-compose binds); never tracked
+runs/
+staged/
