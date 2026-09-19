@@ -155,6 +155,32 @@ def test_dataset_splits_by_subject_and_is_reproducible(rendered_run, tmp_path):
     assert "| test |" in card and "never straddle" in card
 
 
+def test_dataset_extra_train_labels_never_touch_heldout(rendered_run, tmp_path):
+    gold_path = tmp_path / "gold.jsonl"
+    gold = _gold_from_run(rendered_run, gold_path)
+    subs = sorted({g.sub for g in gold})
+    primary = [g for g in gold if g.sub in set(subs[: 2 * len(subs) // 3])]
+    labels.write_gold(primary, str(tmp_path / "primary.jsonl"))
+    m0 = dataset.build(str(tmp_path / "primary.jsonl"), str(rendered_run), str(tmp_path / "d0"), seed=3)
+
+    # extra = the remaining subjects, PLUS one scan of a subject held out in m0 (must be dropped)
+    heldout_sub = next(k.split("|")[0] for k, sp in m0["examples"].items() if sp == "test")
+    leak = next(g for g in gold if g.sub == heldout_sub)
+    extra = [g for g in gold if g.sub not in set(subs[: 2 * len(subs) // 3])] + [leak]
+    labels.write_gold(extra, str(tmp_path / "extra.jsonl"))
+    m1 = dataset.build(str(tmp_path / "primary.jsonl"), str(rendered_run), str(tmp_path / "d1"),
+                       seed=3, extra_train_labels=str(tmp_path / "extra.jsonl"))
+
+    assert m1["extra_train"]["n_added"] == len(extra) - 1
+    assert leak.key in m1["extra_train"]["dropped_heldout_subject"]
+    assert all(m1["examples"][g.key] == "train" for g in extra if g.key != leak.key)
+    # held-out splits are byte-identical to the build without extra labels
+    for split in ("validation", "test"):
+        assert m1["counts"][split] == m0["counts"][split]
+        assert open(tmp_path / "d1" / f"{split}.jsonl").read() == open(tmp_path / "d0" / f"{split}.jsonl").read()
+    assert "machine/teacher labels" in open(tmp_path / "d1" / "DATA_CARD.md").read()
+
+
 def test_dataset_with_context_embeds_reference_notes(rendered_run, tmp_path):
     gold_path = tmp_path / "gold.jsonl"
     _gold_from_run(rendered_run, gold_path)

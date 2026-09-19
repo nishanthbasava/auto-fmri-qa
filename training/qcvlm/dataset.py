@@ -103,30 +103,50 @@ def split_subjects(examples: list[dict], seed: int, fractions=(0.7, 0.15, 0.15))
 
 
 def build(labels_path: str, run_dir: str, out_dir: str, seed: int = 7,
-          fractions=(0.7, 0.15, 0.15), with_context: bool = False) -> dict:
+          fractions=(0.7, 0.15, 0.15), with_context: bool = False,
+          extra_train_labels: str | None = None) -> dict:
     with open(os.path.join(run_dir, "state.json")) as f:
         state = json.load(f)
-    labels = read_gold(labels_path)
-    examples, skipped = [], []
-    for lab in labels:
+
+    def to_example(lab):
         scan = state["scans"].get(lab.key)
         if not scan or not scan.get("rendered"):
-            skipped.append(lab.key)
-            continue
+            return None
         ctx = ""
         if with_context:
             from autoqa.agents import rag
             ctx = rag.format_context(rag.context_for_scans([scan], k=2))
-        examples.append(example(lab, scan, ctx))
+        return example(lab, scan, ctx)
+
+    examples, skipped = [], []
+    for lab in read_gold(labels_path):
+        ex = to_example(lab)
+        examples.append(ex) if ex else skipped.append(lab.key)
     assign = split_subjects(examples, seed, fractions)
+
+    # Extra labels (e.g. machine/teacher labels) go to TRAIN ONLY. Any of their
+    # scans whose subject was dealt to validation/test is dropped, so held-out
+    # subjects stay untouched by weaker supervision.
+    extra, extra_dropped = [], []
+    if extra_train_labels:
+        held_out = {sub for sub, sp in assign.items() if sp != "train"}
+        for lab in read_gold(extra_train_labels):
+            if lab.sub in held_out:
+                extra_dropped.append(lab.key)
+                continue
+            ex = to_example(lab)
+            extra.append(ex) if ex else skipped.append(lab.key)
     os.makedirs(out_dir, exist_ok=True)
     files = {s: open(os.path.join(out_dir, f"{s}.jsonl"), "w") for s in ("train", "validation", "test")}
     counts = {s: Counter() for s in files}
     manifest = {"seed": seed, "fractions": list(fractions), "labels": os.path.abspath(labels_path),
                 "run_dir": os.path.abspath(run_dir), "with_context": with_context,
                 "skipped_unrendered": skipped, "images": {}, "examples": {}}
-    for ex in examples:
-        split = assign[ex["sub"]]
+    if extra_train_labels:
+        manifest["extra_train"] = {"labels": os.path.abspath(extra_train_labels),
+                                   "n_added": len(extra), "dropped_heldout_subject": extra_dropped}
+    for ex in examples + extra:
+        split = assign.get(ex["sub"], "train")   # extra labels always land in train
         ex["split"] = split
         files[split].write(json.dumps(ex) + "\n")
         counts[split][ex["label"]["rating"]] += 1
@@ -136,7 +156,8 @@ def build(labels_path: str, run_dir: str, out_dir: str, seed: int = 7,
     for f in files.values():
         f.close()
     manifest["counts"] = {s: dict(c) for s, c in counts.items()}
-    manifest["n_subjects"] = {s: len({e["sub"] for e in examples if assign[e["sub"]] == s}) for s in files}
+    all_ex = examples + extra
+    manifest["n_subjects"] = {s: len({e["sub"] for e in all_ex if e["split"] == s}) for s in files}
     with open(os.path.join(out_dir, "MANIFEST.json"), "w") as f:
         json.dump(manifest, f, indent=1)
     write_data_card(manifest, os.path.join(out_dir, "DATA_CARD.md"))
@@ -154,7 +175,13 @@ def write_data_card(m: dict, path: str) -> None:
         lines.append(f"| {s} | {sum(c.values())} | {m['n_subjects'][s]} | "
                      + " | ".join(str(c.get(r, 0)) for r in ("clean", "minor", "concern", "bad")) + " |")
     lines += ["", f"Images: {len(m['images'])} rendered fMRIPrep reportlets (JPEG), sha256 in MANIFEST.json.",
-              f"Reference notes in the prompt: {'yes' if m['with_context'] else 'no'}.",
+              f"Reference notes in the prompt: {'yes' if m['with_context'] else 'no'}."]
+    if m.get("extra_train"):
+        et = m["extra_train"]
+        lines += [f"Train split additionally contains {et['n_added']} scans from `{et['labels']}` "
+                  f"(machine/teacher labels; never in validation/test — "
+                  f"{len(et['dropped_heldout_subject'])} dropped for held-out subjects)."]
+    lines += [
               "", "Subjects never straddle splits. The test split is frozen: do not re-split after "
               "looking at test results.",
               "", "Source data is ADNI (DUA-restricted): the JSONL and images are gitignored; only this "
@@ -176,8 +203,12 @@ def main(argv=None) -> int:
     ap.add_argument("--seed", type=int, default=7)
     ap.add_argument("--split", type=float, nargs=3, default=(0.7, 0.15, 0.15))
     ap.add_argument("--with-context", action="store_true", help="embed RAG reference notes")
+    ap.add_argument("--extra-train-labels", default=None, metavar="PATH",
+                    help="second labels file (e.g. machine labels) added to the TRAIN split only; "
+                         "scans of held-out subjects are dropped")
     args = ap.parse_args(argv)
-    m = build(args.labels, args.run, args.out, args.seed, tuple(args.split), args.with_context)
+    m = build(args.labels, args.run, args.out, args.seed, tuple(args.split), args.with_context,
+              args.extra_train_labels)
     for s in ("train", "validation", "test"):
         print(f"{s:10s} {sum(m['counts'][s].values()):4d} scans / {m['n_subjects'][s]:3d} subjects  {m['counts'][s]}")
     if m["skipped_unrendered"]:
